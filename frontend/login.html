@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookSphere - Login</title>
+  <meta name="description" content="Sign in to BookSphere Library Management System">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e17;
+      --accent: #d4af37;
+      --accent-light: #f3e5ab;
+      --accent-glow: rgba(212, 175, 55, 0.25);
+      --glass-bg: rgba(19, 25, 38, 0.5);
+      --glass-border: rgba(255, 255, 255, 0.05);
+      --glass-blur: blur(28px);
+      --text: #f0f4f8;
+      --text-secondary: #a0aec0;
+      --text-muted: #718096;
+      --danger: #ef4444;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; }
+    h1,h2,h3 { font-family: 'Outfit', sans-serif; }
+    .bg-grid { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 50px 50px; }
+    .orb { position: fixed; border-radius: 50%; filter: blur(100px); z-index: 0; animation: orbDrift 25s infinite ease-in-out; }
+    .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(212,175,55,0.12), transparent 70%); top: -200px; left: -150px; }
+    .orb-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(59,130,246,0.08), transparent 70%); bottom: -200px; right: -150px; animation-delay: -10s; }
+    @keyframes orbDrift { 0%,100% { transform: translate(0,0); } 33% { transform: translate(30px,-40px); } 66% { transform: translate(-20px,30px); } }
+    .login-page { position: relative; z-index: 10; width: 100%; max-width: 560px; padding: 20px; }
+    .back-link { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; margin-bottom: 36px; transition: all 0.3s; }
+    .back-link:hover { color: var(--accent-light); }
+    .login-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 48px 40px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); animation: fadeSlideIn 0.4s ease; }
+    .brand { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+    .brand-name { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #fff, var(--accent)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .tagline { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; }
+    .security-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; padding: 10px 18px; background: rgba(46,213,115,0.06); border: 1px solid rgba(46,213,115,0.15); border-radius: 10px; font-size: 0.78rem; color: var(--success); font-weight: 500; }
+    .security-badge svg { width: 16px; height: 16px; }
+    /* Role Toggle — 2 rows */
+    .role-toggle { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.3); border-radius: 14px; padding: 6px; margin-bottom: 28px; border: 1px solid var(--glass-border); }
+    .role-toggle-btn { padding: 11px 0; text-align: center; border: none; background: transparent; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; border-radius: 10px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .role-toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .role-toggle-btn.active { background: rgba(212,175,55,0.12); color: var(--accent-light); border: 1px solid rgba(212,175,55,0.2); }
+    .role-toggle-btn.active.r-student { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+    .role-toggle-btn.active.r-teacher { background: rgba(46,213,115,0.12); color: #2ed573; border: 1px solid rgba(46,213,115,0.2); }
+    .role-toggle-btn.active.r-owner { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+    .input-wrapper { position: relative; }
+    .input-wrapper svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--text-muted); stroke: currentColor; fill: none; stroke-width: 2; }
+    .form-group input { width: 100%; padding: 14px 16px 14px 50px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.35); color: var(--text); font-size: 0.95rem; font-family: 'Inter', sans-serif; transition: all 0.3s; outline: none; }
+    .form-group input::placeholder { color: var(--text-muted); }
+    .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .login-btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--accent); color: #000; font-size: 1rem; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 20px var(--accent-glow); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .login-btn:hover { background: var(--accent-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(212,175,55,0.4); }
+    .login-btn:disabled { opacity: 0.5; pointer-events: none; transform: none; }
+    .spinner { width: 20px; height: 20px; border: 2.5px solid rgba(0,0,0,0.15); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .login-error { text-align: center; color: var(--danger); font-size: 0.85rem; margin-top: 16px; min-height: 20px; }
+    .login-success { text-align: center; color: var(--success); font-size: 0.85rem; margin-top: 16px; min-height: 20px; }
+    .login-footer { text-align: center; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--glass-border); color: var(--text-muted); font-size: 0.8rem; line-height: 1.6; }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── All screens: fluid login card ─── */
+    .login-page {
+      width: 100%;
+      max-width: min(560px, 96vw);
+      padding: clamp(12px, 4vw, 24px);
+    }
+    .login-card {
+      padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 40px);
+    }
+    .brand-name {
+      font-size: clamp(1.4rem, 4vw, 1.8rem);
+    }
+    .form-group input {
+      font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+    }
+
+    /* ── Large screens 1024px+ ── */
+    @media (min-width: 1024px) {
+      .login-page { max-width: 560px; }
+      .login-card { padding: 48px 40px; }
+    }
+
+    /* ── Tablets 561px–1023px ── */
+    @media (min-width: 561px) and (max-width: 1023px) {
+      .login-page { max-width: 520px; }
+      .login-card { padding: 36px 30px; }
+    }
+
+    /* ── Large phones 481px–560px ── */
+    @media (max-width: 560px) {
+      .login-card { padding: 28px 20px; border-radius: 18px; }
+      .login-page { padding: 14px; }
+      .role-toggle { grid-template-columns: 1fr 1fr; }
+      .brand-name { font-size: 1.5rem; }
+      .tagline { font-size: 0.84rem; }
+      .security-badge { font-size: 0.74rem; padding: 8px 14px; }
+    }
+
+    /* ── Small phones up to 400px ── */
+    @media (max-width: 400px) {
+      .login-card { padding: 20px 14px; border-radius: 14px; }
+      .login-page { padding: 10px; }
+      .role-toggle { grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; }
+      .role-toggle-btn { padding: 9px 0; font-size: 0.76rem; }
+      .brand-name { font-size: 1.3rem; }
+      .form-group input { padding: 12px 14px 12px 44px; font-size: 0.85rem; }
+      .login-btn { padding: 13px; font-size: 0.9rem; }
+      .back-link { font-size: 0.8rem; margin-bottom: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="login-page">
+    <a href="index.html" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to Home
+    </a>
+
+    <div class="login-card">
+      <div class="brand">
+        <img src="logo.png" alt="Logo" style="width:36px; height:36px; border-radius:50%; object-fit: cover;">
+        <span class="brand-name">BookSphere</span>
+      </div>
+      <p class="tagline" id="tagline">Sign in to your account</p>
+
+      <div class="security-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Secure Password Authentication
+      </div>
+
+      <!-- Role Toggle (5 roles) -->
+      <div class="role-toggle" id="roleToggle">
+        <button type="button" class="role-toggle-btn active" id="btn-owner" onclick="selectRole('owner')">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Owner
+        </button>
+        <button type="button" class="role-toggle-btn" id="btn-admin" onclick="selectRole('admin')">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Admin
+        </button>
+
+        <button type="button" class="role-toggle-btn" id="btn-teacher" onclick="selectRole('teacher')">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Teacher
+        </button>
+        <button type="button" class="role-toggle-btn" id="btn-student" onclick="selectRole('student')">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Student
+        </button>
+      </div>
+
+      <form onsubmit="handleAuth(event)" id="authForm">
+        <div class="form-group" id="nameGroup" style="display:none;">
+          <label for="name">Full Name</label>
+          <div class="input-wrapper">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="name" placeholder="John Doe" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="emailGroup">
+          <label for="email">Email Address</label>
+          <div class="input-wrapper">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <input type="email" id="email" placeholder="you@example.com" required autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="passwordGroup">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="password" placeholder="Enter your password" required autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="otpGroup" style="display:none;">
+          <label for="otp">One Time Password (OTP)</label>
+          <div class="input-wrapper">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="text" id="otp" placeholder="Enter 6-digit OTP" autocomplete="off" maxlength="6">
+          </div>
+        </div>
+        <button type="submit" class="login-btn" id="authBtn">
+          <span id="authBtnText">Sign In</span>
+          <div class="spinner" id="authSpinner"></div>
+        </button>
+        <div style="text-align:center; margin-top:15px; font-size:0.85rem; display:flex; flex-direction:column; gap:8px;">
+          <a href="javascript:void(0)" onclick="toggleAuthMode()" style="color:var(--accent); text-decoration:none;" id="toggleLink">Don't have an account? Sign Up</a>
+          <a href="javascript:void(0)" onclick="toggleForgotPassword()" style="color:var(--text-muted); text-decoration:none;" id="forgotPasswordLink">Forgot Password?</a>
+        </div>
+        <div class="login-error" id="authError"></div>
+        <div class="login-success" id="authSuccess"></div>
+      </form>
+
+      <div class="login-footer">
+        BookSphere Library Management System<br>
+        <small>Owner · Admin · Teacher · Student</small>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var selectedRole = 'owner';
+    var isSignUp = false;
+    var isForgotPassword = false;
+    var isOtpStep = false;
+    var ROLE_CLASSES = { owner: 'r-owner', admin: '', teacher: 'r-teacher', student: 'r-student' };
+
+    function selectRole(role) {
+      selectedRole = role;
+      document.querySelectorAll('.role-toggle-btn').forEach(function(btn) {
+        btn.classList.remove('active','r-owner','r-student','r-teacher');
+      });
+      var btn = document.getElementById('btn-' + role);
+      btn.classList.add('active');
+      if (ROLE_CLASSES[role]) btn.classList.add(ROLE_CLASSES[role]);
+      document.getElementById('authError').textContent = '';
+    }
+
+    function toggleAuthMode() {
+      if (isForgotPassword) { resetToLogin(); return; }
+      isSignUp = !isSignUp;
+      isOtpStep = false;
+      document.getElementById('nameGroup').style.display = isSignUp ? 'block' : 'none';
+      document.getElementById('emailGroup').style.display = 'block';
+      document.getElementById('passwordGroup').style.display = 'block';
+      document.getElementById('otpGroup').style.display = 'none';
+      
+      if (isSignUp) document.getElementById('name').setAttribute('required','true');
+      else document.getElementById('name').removeAttribute('required');
+      document.getElementById('authBtnText').textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      document.getElementById('toggleLink').textContent = isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up";
+      document.getElementById('forgotPasswordLink').style.display = isSignUp ? 'none' : 'block';
+      document.getElementById('tagline').textContent = isSignUp ? 'Create a new account' : 'Sign in to your account';
+      document.getElementById('authError').textContent = '';
+      document.getElementById('authSuccess').textContent = '';
+    }
+
+    function toggleForgotPassword() {
+      isForgotPassword = true;
+      isSignUp = false;
+      isOtpStep = false;
+      document.getElementById('nameGroup').style.display = 'none';
+      document.getElementById('emailGroup').style.display = 'block';
+      document.getElementById('passwordGroup').style.display = 'none';
+      document.getElementById('otpGroup').style.display = 'none';
+      
+      document.getElementById('name').removeAttribute('required');
+      document.getElementById('password').removeAttribute('required');
+      
+      document.getElementById('authBtnText').textContent = 'Send Reset OTP';
+      document.getElementById('toggleLink').textContent = 'Back to Login';
+      document.getElementById('forgotPasswordLink').style.display = 'none';
+      document.getElementById('tagline').textContent = 'Reset your password';
+      document.getElementById('authError').textContent = '';
+      document.getElementById('authSuccess').textContent = '';
+    }
+
+    function resetToLogin() {
+      isForgotPassword = false;
+      isSignUp = false;
+      isOtpStep = false;
+      document.getElementById('nameGroup').style.display = 'none';
+      document.getElementById('emailGroup').style.display = 'block';
+      document.getElementById('passwordGroup').style.display = 'block';
+      document.getElementById('otpGroup').style.display = 'none';
+      document.querySelector('#passwordGroup label').textContent = 'Password';
+      document.getElementById('password').setAttribute('placeholder', 'Enter your password');
+      document.getElementById('password').setAttribute('required', 'true');
+      
+      document.getElementById('authBtnText').textContent = 'Sign In';
+      document.getElementById('toggleLink').textContent = "Don't have an account? Sign Up";
+      document.getElementById('forgotPasswordLink').style.display = 'block';
+      document.getElementById('tagline').textContent = 'Sign in to your account';
+      document.getElementById('authError').textContent = '';
+      document.getElementById('authSuccess').textContent = '';
+    }
+
+    function handleAuth(event) {
+      event.preventDefault();
+      var email = document.getElementById('email').value.trim().toLowerCase();
+      var password = document.getElementById('password').value;
+      var name = document.getElementById('name').value.trim();
+      var otp = document.getElementById('otp').value.trim();
+      var errorEl = document.getElementById('authError');
+      var successEl = document.getElementById('authSuccess');
+      errorEl.textContent = ''; successEl.textContent = '';
+      
+      if (!email) { errorEl.textContent = 'Please enter your email.'; return; }
+      
+      if (isForgotPassword) {
+        if (isOtpStep) {
+          if (!otp) { errorEl.textContent = 'Please enter the OTP.'; return; }
+          if (!password) { errorEl.textContent = 'Please enter your new password.'; return; }
+        }
+      } else {
+        if (!isOtpStep) {
+          if (!password) { errorEl.textContent = 'Please enter your password.'; return; }
+          if (isSignUp && !name) { errorEl.textContent = 'Please enter your full name.'; return; }
+        } else {
+          if (!otp) { errorEl.textContent = 'Please enter the OTP.'; return; }
+        }
+      }
+
+      document.getElementById('authSpinner').style.display = 'block';
+      
+      var btnStateText = '';
+      if (isForgotPassword) {
+          btnStateText = isOtpStep ? 'Resetting...' : 'Sending Reset OTP...';
+      } else if (isSignUp) {
+          btnStateText = isOtpStep ? 'Creating account...' : 'Sending OTP...';
+      } else {
+          btnStateText = isOtpStep ? 'Verifying...' : 'Signing in...';
+      }
+      document.getElementById('authBtnText').textContent = btnStateText;
+      document.getElementById('authBtn').disabled = true;
+      
+      var endpoint = '';
+      if (isForgotPassword) {
+        endpoint = isOtpStep ? '/api/auth/reset-password' : '/api/auth/forgot-password-otp';
+      } else if (isSignUp) {
+        endpoint = isOtpStep ? '/api/auth/register' : '/api/auth/send-register-otp';
+      } else {
+        endpoint = isOtpStep ? '/api/auth/verify-login-otp' : '/api/auth/login';
+      }
+      
+      var body = { email: email, role: selectedRole };
+      
+      if (isForgotPassword) {
+        if (isOtpStep) {
+            body.otp = otp;
+            body.newPassword = password;
+        }
+      } else if (isSignUp) {
+        if (isOtpStep) {
+            body.name = name;
+            body.password = password;
+            body.otp = otp;
+        }
+      } else {
+        if (isOtpStep) {
+            body.otp = otp;
+        } else {
+            body.password = password;
+        }
+      }
+      
+      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }, body: JSON.stringify(body) })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          document.getElementById('authSpinner').style.display = 'none';
+          document.getElementById('authBtnText').textContent = isSignUp ? (isOtpStep ? 'Verify OTP' : 'Sign Up') : (isOtpStep ? 'Verify OTP' : 'Sign In');
+          document.getElementById('authBtn').disabled = false;
+          
+          if (data.success) {
+            if (data.requiresOtp || endpoint === '/api/auth/send-register-otp' || endpoint === '/api/auth/forgot-password-otp') {
+              isOtpStep = true;
+              document.getElementById('nameGroup').style.display = 'none';
+              document.getElementById('emailGroup').style.display = 'none';
+              
+              if (isForgotPassword) {
+                 document.getElementById('passwordGroup').style.display = 'block';
+                 document.querySelector('#passwordGroup label').textContent = 'New Password';
+                 document.getElementById('password').setAttribute('placeholder', 'Enter strong new password');
+                 document.getElementById('password').value = '';
+              } else {
+                 document.getElementById('passwordGroup').style.display = 'none';
+              }
+              
+              document.getElementById('otpGroup').style.display = 'block';
+              document.getElementById('authBtnText').textContent = isForgotPassword ? 'Reset Password' : 'Verify OTP';
+              document.getElementById('forgotPasswordLink').style.display = 'none';
+              document.getElementById('tagline').textContent = isForgotPassword ? 'Enter OTP and new password' : 'Enter the OTP sent to your email';
+              successEl.textContent = data.message;
+              return;
+            }
+            if (data.pending) { 
+                successEl.textContent = data.message; 
+                setTimeout(function() { resetToLogin(); }, 3000); 
+                return; 
+            }
+            if (endpoint === '/api/auth/reset-password') {
+                successEl.textContent = data.message;
+                setTimeout(function() { resetToLogin(); }, 2000);
+                return;
+            }
+            
+            localStorage.setItem('bs_currentUser', JSON.stringify(data.user));
+            localStorage.setItem('bs_token', data.token);
+            successEl.textContent = 'Success! Redirecting...';
+            setTimeout(function() { window.location.href = 'dashboard.html'; }, 800);
+          } else { 
+            errorEl.textContent = data.message; 
+          }
+        })
+        .catch(function(err) {
+          document.getElementById('authSpinner').style.display = 'none';
+          document.getElementById('authBtnText').textContent = isForgotPassword ? (isOtpStep ? 'Reset Password' : 'Send Reset OTP') : (isSignUp ? (isOtpStep ? 'Verify OTP' : 'Sign Up') : (isOtpStep ? 'Verify OTP' : 'Sign In'));
+          document.getElementById('authBtn').disabled = false;
+          errorEl.textContent = 'Error: ' + err.message + ' (Check LocalTunnel warning page)';
+        });
+    }
+  </script>
+</body>
+</html>

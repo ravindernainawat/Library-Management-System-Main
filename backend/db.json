@@ -1,0 +1,174 @@
+{
+  "accounts": [
+    {
+      "name": "Admin",
+      "email": "admin@booksphere.com",
+      "password": "admin123",
+      "role": "admin"
+    },
+    {
+      "name": "Anay",
+      "email": "anay@booksphere.com",
+      "password": "anay123",
+      "role": "admin"
+    },
+    {
+      "name": "Student",
+      "email": "student@booksphere.com",
+      "password": "student123",
+      "role": "student"
+    },
+    {
+      "name": "Rahul",
+      "email": "rahul@booksphere.com",
+      "password": "rahul123",
+      "role": "student"
+    },
+    {
+      "name": "Priya Patel",
+      "email": "priya@booksphere.com",
+      "password": "priya123",
+      "role": "student"
+    },
+    {
+      "name": "Amit Kumar",
+      "email": "amit@booksphere.com",
+      "password": "amit123",
+      "role": "student"
+    },
+    {
+      "name": "Sneha Gupta",
+      "email": "sneha@booksphere.com",
+      "password": "sneha123",
+      "role": "student"
+    },
+    {
+      "name": "Vikram Singh",
+      "email": "vikram@booksphere.com",
+      "password": "vikram123",
+      "role": "student"
+    },
+    {
+      "name": "Neha Sharma",
+      "email": "neha@booksphere.com",
+      "password": "neha123",
+      "role": "student"
+    }
+  ],
+  "books": [
+    {
+      "id": "1",
+      "title": "The Great Gatsby",
+      "author": "F. Scott Fitzgerald",
+      "category": "Fiction",
+      "totalCopies": 5,
+      "availableCopies": 4
+    },
+    {
+      "id": "2",
+      "title": "To Kill a Mockingbird",
+      "author": "Harper Lee",
+      "category": "Fiction",
+      "totalCopies": 3,
+      "availableCopies": 3
+    },
+    {
+      "id": "3",
+      "title": "Introduction to Algorithms",
+      "author": "Thomas H. Cormen",
+      "category": "Computer Science",
+      "totalCopies": 4,
+      "availableCopies": 4
+    },
+    {
+      "id": "4",
+      "title": "Clean Code",
+      "author": "Robert C. Martin",
+      "category": "Programming",
+      "totalCopies": 6,
+      "availableCopies": 6
+    },
+    
+    {
+      "id": "5",
+      "title": "Data Structures and Algorithms",
+      "author": "Narasimha Karumanchi",
+      "category": "Computer Science",
+      "totalCopies": 3,
+      "availableCopies": 3
+    },
+    {
+      "id": "6",
+      "title": "The Pragmatic Programmer",
+      "author": "David Thomas",
+      "category": "Programming",
+      "totalCopies": 2,
+      "availableCopies": 2
+    },
+    {
+      "id": "7",
+      "title": "Sapiens",
+      "author": "Yuval Noah Harari",
+      "category": "Non-Fiction",
+      "totalCopies": 4,
+      "availableCopies": 4
+    },
+    {
+      "id": "8",
+      "title": "Atomic Habits",
+      "author": "James Clear",
+      "category": "Self-Help",
+      "totalCopies": 5,
+      "availableCopies": 5
+    }
+  ],
+  "users": [
+    {
+      "id": "u1",
+      "name": "Rahul Sharma",
+      "contact": "+91 98765 43210"
+    },
+    {
+      "id": "u2",
+      "name": "Priya Patel",
+      "contact": "+91 87654 32109"
+    },
+    {
+      "id": "u3",
+      "name": "Amit Kumar",
+      "contact": "+91 76543 21098"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "mnu7jv823krmd",
+      "bookId": "1",
+      "userId": null,
+      "userName": "Neha Sharma",
+      "issueDate": "2026-04-11T10:44:33.358Z",
+      "dueDate": "2026-04-25T10:44:33.358Z",
+      "returnDate": null,
+      "status": "issued"
+    }
+  ],
+  "requests": [
+    {
+      "id": "mnu7ibctsgxlw",
+      "bookId": "1",
+      "bookTitle": "The Great Gatsby",
+      "userName": "Neha Sharma",
+      "userEmail": "neha@booksphere.com",
+      "status": "approved",
+      "requestDate": "2026-04-11T10:43:20.957Z"
+    },
+    {
+      "id": "mnuagjpbf0up4",
+      "bookId": "1",
+      "bookTitle": "The Great Gatsby",
+      "userName": "Neha Sharma",
+      "userEmail": "neha@booksphere.com",
+      "status": "pending",
+      "requestDate": "2026-04-11T12:05:57.311Z"
+    }
+  ]
+}

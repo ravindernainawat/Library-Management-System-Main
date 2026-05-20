@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookSphere — Dashboard</title>
+  <meta name="description" content="BookSphere Library Management Dashboard">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- BOOK DETAIL MODAL -->
+  <div class="modal-overlay" id="bookDetailModal" style="display:none;">
+    <div class="modal-content" id="bookDetailContent"></div>
+  </div>
+
+  <!-- EDIT BOOK MODAL -->
+  <div class="modal-overlay" id="editBookModal" style="display:none;">
+    <div class="modal-content" id="editBookContent"></div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f5cf53" />
+            <stop offset="100%" stop-color="#d4af37" />
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="45" fill="none" stroke="url(#gold)" stroke-width="3.5" />
+        <path d="M 50 10 Q 73 50 50 90 Q 27 50 50 10 Z" fill="none" stroke="url(#gold)" stroke-width="3.5" />
+        <path d="M 10 50 Q 50 73 90 50 Q 50 27 10 50 Z" fill="none" stroke="url(#gold)" stroke-width="3.5" />
+        <circle cx="50" cy="50" r="7" fill="url(#gold)" />
+      </svg>
+      <span class="navbar-brand-text">BookSphere</span>
+    </a>
+    <span class="navbar-title" id="navbar-title">Dashboard</span>
+    <div class="navbar-actions">
+      <div id="google_translate_element" style="margin-right: 15px;"></div>
+      <script type="text/javascript">
+        function googleTranslateElementInit() {
+          new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
+        }
+      </script>
+      <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+      <div class="notification-bell" id="notificationBell" onclick="switchSection('notifications')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="notification-badge" id="notifBadge">0</span>
+      </div>
+      <span class="user-info" id="user-info"></span>
+      <a href="#" class="btn-logout" onclick="logout()">Logout</a>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- DASHBOARD HOME -->
+    <div class="content-section active" id="section-dashboard">
+      <div class="section-header"><h2>Dashboard Overview</h2></div>
+      <div class="stats-grid">
+        <div class="stat-card books">
+          <div class="stat-icon-wrap books-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <div class="stat-value" id="stat-total-books">0</div>
+          <div class="stat-label">Total Books</div>
+        </div>
+        <div class="stat-card users" id="stat-card-users">
+          <div class="stat-icon-wrap users-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="stat-value" id="stat-total-users">0</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card issued">
+          <div class="stat-icon-wrap issued-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>
+          </div>
+          <div class="stat-value" id="stat-issued-books">0</div>
+          <div class="stat-label">Issued Books</div>
+        </div>
+        <div class="stat-card fines">
+          <div class="stat-icon-wrap fines-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="stat-value" id="stat-total-fines">0</div>
+          <div class="stat-label">Total Fines</div>
+        </div>
+      </div>
+      <!-- Recommendations (Student) -->
+      <div class="glass-panel student-only" id="recommendations-panel">
+        <h3>📖 Recommended For You</h3>
+        <div class="stats-grid" id="recommendations-grid"></div>
+      </div>
+      <div class="glass-panel">
+        <h3>Recent Transactions</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Book</th><th>User</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th></tr></thead>
+            <tbody id="recent-transactions-body">
+              <tr><td colspan="6" class="empty-state"><p>No transactions yet.</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOK MANAGEMENT -->
+    <div class="content-section" id="section-books">
+      <div class="section-header">
+        <h2>Book Management</h2>
+        <div class="search-bar">
+          <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="book-search" placeholder="Search by title, author, category..." oninput="renderBooks()">
+        </div>
+      </div>
+      <div class="glass-panel admin-only" id="add-book-panel">
+        <h3>Add New Book</h3>
+        <form id="add-book-form" onsubmit="addBook(event)">
+          <div class="form-grid">
+            <div class="form-group"><label for="book-title">Title</label><input type="text" id="book-title" placeholder="e.g. The Great Gatsby" required></div>
+            <div class="form-group"><label for="book-author">Author</label><input type="text" id="book-author" placeholder="e.g. F. Scott Fitzgerald" required></div>
+            <div class="form-group"><label for="book-category">Category</label><input type="text" id="book-category" placeholder="e.g. Fiction" required></div>
+            <div class="form-group"><label for="book-quantity">Quantity</label><input type="number" id="book-quantity" placeholder="e.g. 5" min="1" required></div>
+            <div class="form-group"><label for="book-isbn">ISBN</label><input type="text" id="book-isbn" placeholder="e.g. 978-0743273565"></div>
+            <div class="form-group"><label for="book-publisher">Publisher</label><input type="text" id="book-publisher" placeholder="e.g. Scribner"></div>
+            <div class="form-group"><label for="book-year">Year</label><input type="number" id="book-year" placeholder="e.g. 1925"></div>
+            <div class="form-group"><label for="book-description">Description</label><input type="text" id="book-description" placeholder="Short description..."></div>
+            <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Add Book</button></div>
+          </div>
+        </form>
+      </div>
+      <div class="glass-panel">
+        <h3>All Books</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Total</th><th>Available</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="books-table-body">
+              <tr><td colspan="8" class="empty-state"><p>No books added yet.</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- USER MANAGEMENT (Admin only) -->
+    <div class="content-section admin-only" id="section-users">
+      <div class="section-header"><h2>User Management</h2></div>
+      <div class="glass-panel">
+        <h3>Add New User</h3>
+        <form id="add-user-form" onsubmit="addUser(event)">
+          <div class="form-grid">
+            <div class="form-group"><label for="user-name">Full Name</label><input type="text" id="user-name" placeholder="e.g. John Doe" required></div>
+            <div class="form-group"><label for="user-contact">Contact</label><input type="text" id="user-contact" placeholder="e.g. +91 98765 43210" required></div>
+            <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Add User</button></div>
+          </div>
+        </form>
+      </div>
+      <div class="glass-panel">
+        <h3>All Users</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Contact</th><th>Books Issued</th><th>Actions</th></tr></thead>
+            <tbody id="users-table-body"><tr><td colspan="5" class="empty-state"><p>No users added yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISSUE / RETURN -->
+    <div class="content-section" id="section-issue-return">
+      <div class="section-header"><h2 id="issue-section-title">Issue and Return Books</h2></div>
+      <div class="glass-panel admin-only" id="issue-form-panel">
+        <h3>Issue a Book</h3>
+        <form id="issue-book-form" onsubmit="issueBook(event)">
+          <div class="form-grid">
+            <div class="form-group"><label for="issue-book-select">Select Book</label><select id="issue-book-select" required><option value="">-- Choose Book --</option></select></div>
+            <div class="form-group"><label for="issue-user-select">Select User</label><select id="issue-user-select" required><option value="">-- Choose User --</option></select></div>
+            <div class="form-group"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Issue Book</button></div>
+          </div>
+        </form>
+      </div>
+      <div class="glass-panel">
+        <h3 id="transactions-table-title">Issued Books</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Book</th><th>User</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th><th class="admin-only-col">Actions</th></tr></thead>
+            <tbody id="transactions-table-body"><tr><td colspan="7" class="empty-state"><p>No transactions yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REQUESTS (Admin only) -->
+    <div class="content-section admin-only" id="section-requests">
+      <div class="section-header"><h2>Book Requests</h2></div>
+      <div class="glass-panel">
+        <h3>Pending Requests</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Student</th><th>Book</th><th>Request Date</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="requests-table-body"><tr><td colspan="5" class="empty-state"><p>No pending requests.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>Request History</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Student</th><th>Book</th><th>Request Date</th><th>Status</th></tr></thead>
+            <tbody id="requests-history-body"><tr><td colspan="4" class="empty-state"><p>No past requests.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MY REQUESTS (Student only) -->
+    <div class="content-section student-only" id="section-my-requests">
+      <div class="section-header"><h2>My Requests</h2></div>
+      <div class="glass-panel">
+        <h3>Request Status</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Book</th><th>Request Date</th><th>Status</th></tr></thead>
+            <tbody id="my-requests-body"><tr><td colspan="3" class="empty-state"><p>You haven't made any requests yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- WISHLIST (Student only) -->
+    <div class="content-section student-only" id="section-wishlist">
+      <div class="section-header"><h2>My Wishlist</h2></div>
+      <div class="glass-panel">
+        <h3>⭐ Saved Books</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Book</th><th>Author</th><th>Availability</th><th>Actions</th></tr></thead>
+            <tbody id="wishlist-table-body"><tr><td colspan="4" class="empty-state"><p>Your wishlist is empty.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BORROWING HISTORY (Student only) -->
+    <div class="content-section student-only" id="section-history">
+      <div class="section-header"><h2>Borrowing History</h2></div>
+      <div class="glass-panel">
+        <h3>📜 Complete History</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Return Date</th><th>Status</th><th>Fine</th></tr></thead>
+            <tbody id="history-table-body"><tr><td colspan="6" class="empty-state"><p>No borrowing history yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="content-section" id="section-notifications">
+      <div class="section-header">
+        <h2>Notifications</h2>
+        <button class="btn btn-primary btn-sm" onclick="markAllNotificationsRead()">Mark All Read</button>
+      </div>
+      <div class="glass-panel">
+        <div id="notifications-list"><p class="empty-state">No notifications.</p></div>
+      </div>
+    </div>
+
+    <!-- REPORTS (Admin only) -->
+    <div class="content-section admin-only" id="section-reports">
+      <div class="section-header"><h2>Reports & Analytics</h2></div>
+      <div class="stats-grid" id="report-overview-grid"></div>
+      <div class="glass-panel">
+        <h3>📊 Most Borrowed Books</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>Title</th><th>Author</th><th>Category</th><th>Times Issued</th></tr></thead>
+            <tbody id="popular-books-body"><tr><td colspan="5" class="empty-state"><p>No data yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>👥 Most Active Users</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>User</th><th>Books Borrowed</th></tr></thead>
+            <tbody id="active-users-body"><tr><td colspan="3" class="empty-state"><p>No data yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>📚 Category Distribution</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Category</th><th>Books</th><th>Total Copies</th></tr></thead>
+            <tbody id="categories-body"><tr><td colspan="3" class="empty-state"><p>No data yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM ACTIVITY (Admin only) -->
+    <div class="content-section admin-only" id="section-activity">
+      <div class="section-header">
+        <h2>System Activity Logs</h2>
+        <button class="btn btn-primary btn-sm" onclick="renderActivityLogs()">Refresh</button>
+      </div>
+      <div class="glass-panel">
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Time</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
+            <tbody id="activity-table-body"><tr><td colspan="4" class="empty-state"><p>No activity recorded yet.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIGITAL LIBRARY -->
+    <div class="content-section" id="section-digital-library">
+      <div class="section-header">
+        <h2>Digital Library (eBooks)</h2>
+        <div class="search-bar">
+          <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="ebook-search" placeholder="Search eBooks..." oninput="renderDigitalLibrary()">
+        </div>
+      </div>
+      <div id="ebooks-grid" class="ebooks-grid">
+        <!-- eBooks will be populated here -->
+      </div>
+    </div>
+
+    <!-- FINE REPORTS (Admin only) -->
+    <div class="content-section admin-only" id="section-fines">
+      <div class="section-header"><h2>Fine Reports</h2></div>
+      <div class="glass-panel">
+        <h3>💰 Grand Total: <span id="fine-grand-total" style="color: var(--danger);">\u20B90</span></h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>User</th><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Return</th><th>Late Days</th><th>Fine</th></tr></thead>
+            <tbody id="fines-table-body"><tr><td colspan="7" class="empty-state"><p>No fines recorded.</p></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
