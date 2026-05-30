@@ -660,6 +660,58 @@
           <input type="text" id="ebook-search" placeholder="Search eBooks..." oninput="renderDigitalLibrary()">
         </div>
       </div>
+      
+      <!-- Add E-Book Form (Admin Only) -->
+      <div class="glass-panel admin-only" id="add-ebook-panel" style="margin-bottom: 24px; display: none;">
+        <h3>Add New E-Book</h3>
+        <form id="add-ebook-form" onsubmit="addEBook(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="add-ebook-title">Title</label>
+              <input type="text" id="add-ebook-title" placeholder="e.g. Frankenstein" required>
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-author">Author</label>
+              <input type="text" id="add-ebook-author" placeholder="e.g. Mary Shelley" required>
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-category">Category</label>
+              <input type="text" id="add-ebook-category" placeholder="e.g. Horror" required>
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-pdfurl">PDF URL / Link</label>
+              <input type="url" id="add-ebook-pdfurl" placeholder="e.g. https://www.gutenberg.org/..." required>
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-pages">Pages</label>
+              <input type="number" id="add-ebook-pages" placeholder="e.g. 280" min="1">
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-language">Language</label>
+              <input type="text" id="add-ebook-language" placeholder="e.g. English" value="English">
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-covercolor">Cover Accent Color</label>
+              <select id="add-ebook-covercolor" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: Inter, sans-serif;">
+                <option value="#3b82f6">Blue Accent</option>
+                <option value="#8e44ad">Purple Accent</option>
+                <option value="#2c3e50">Dark Charcoal Accent</option>
+                <option value="#e74c3c">Red Accent</option>
+                <option value="#16a085">Green Accent</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="add-ebook-description">Description</label>
+              <input type="text" id="add-ebook-description" placeholder="A short description of the eBook...">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button type="submit" class="btn btn-primary">Add E-Book</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
       <div id="ebooks-grid" class="ebooks-grid">
         <!-- eBooks will be populated here -->
       </div>

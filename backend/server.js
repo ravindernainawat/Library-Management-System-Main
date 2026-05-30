@@ -663,9 +663,9 @@ app.get("/api/ebooks", async (req, res) => {
 });
 app.post("/api/ebooks", verifyAdmin, async (req, res) => {
   try {
-    const { title, author, category, description, pdfUrl, pages, language } = req.body;
+    const { title, author, category, description, pdfUrl, pages, language, coverColor } = req.body;
     if (!title || !author || !pdfUrl) return res.status(400).json({ message: "Title, author and PDF URL required." });
-    const ebook = await EBook.create({ title, author, category: category||"General", description: description||"", pdfUrl, pages: pages||0, language: language||"English" });
+    const ebook = await EBook.create({ title, author, category: category||"General", description: description||"", pdfUrl, pages: pages||0, language: language||"English", coverColor: coverColor||"#3b82f6" });
     res.json({ success: true, ebook });
   } catch(err) { res.status(500).json({ message: err.message }); }
 });

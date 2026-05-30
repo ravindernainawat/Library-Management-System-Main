@@ -1370,7 +1370,46 @@ function payFineOnline(txId, amount) {
 }
 
 // ============ DIGITAL LIBRARY ============
+function addEBook(e) {
+  e.preventDefault();
+  if (!isAdmin()) { showToast("Only Admin/Owner can add e-books.", "error"); return; }
+  var payload = {
+    title: document.getElementById("add-ebook-title").value.trim(),
+    author: document.getElementById("add-ebook-author").value.trim(),
+    category: document.getElementById("add-ebook-category").value.trim(),
+    pdfUrl: document.getElementById("add-ebook-pdfurl").value.trim(),
+    pages: parseInt(document.getElementById("add-ebook-pages").value) || 0,
+    language: document.getElementById("add-ebook-language").value.trim() || "English",
+    coverColor: document.getElementById("add-ebook-covercolor").value || "#3b82f6",
+    description: document.getElementById("add-ebook-description").value.trim()
+  };
+  if (!payload.title || !payload.author || !payload.pdfUrl) { showToast("Title, Author, and PDF URL are required.", "error"); return; }
+  apiPost("/ebooks", payload).then(function (d) {
+    if (d.success) {
+      showToast("E-Book \"" + payload.title + "\" added successfully!", "success");
+      document.getElementById("add-ebook-form").reset();
+      document.getElementById("add-ebook-language").value = "English";
+      renderDigitalLibrary();
+    } else {
+      showToast(d.message || "Failed to add e-book.", "error");
+    }
+  });
+}
+
+function deleteEBook(id, title) {
+  if (!isAdmin()) return;
+  if (!confirm("Are you sure you want to delete the e-book \"" + title + "\"?")) return;
+  apiDelete("/ebooks/" + id).then(function (d) {
+    if (d.success) { showToast("E-Book deleted.", "info"); renderDigitalLibrary(); }
+    else showToast(d.message || "Failed to delete.", "error");
+  });
+}
+
 function renderDigitalLibrary() {
+  // Show add-ebook panel for admin/owner
+  var addPanel = document.getElementById("add-ebook-panel");
+  if (addPanel) { addPanel.style.display = isAdmin() ? "block" : "none"; }
+
   var search = (document.getElementById("ebook-search") || {}).value || "";
   search = search.toLowerCase();
   apiGet("/ebooks").then(function (ebooks) {
@@ -1381,7 +1420,9 @@ function renderDigitalLibrary() {
     var grid = document.getElementById("ebooks-grid");
     if (!grid) return;
     if (filtered.length === 0) { grid.innerHTML = '<p class="empty-state">No eBooks found.</p>'; return; }
+    var admin = isAdmin();
     grid.innerHTML = filtered.map(function (e) {
+      var eid = e._id || e.id;
       return '<div class="ebook-card" style="border-left:4px solid ' + (e.coverColor || "#3b82f6") + '">' +
         '<div class="ebook-card-body">' +
           '<h4 class="ebook-title">' + e.title + '</h4>' +
@@ -1395,6 +1436,7 @@ function renderDigitalLibrary() {
         '</div>' +
         '<div class="ebook-actions">' +
           '<a href="' + e.pdfUrl + '" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">📖 Read Online</a>' +
+          (admin ? ' <button class="btn btn-danger btn-sm" onclick="deleteEBook(\'' + eid + "', '" + e.title.replace(/'/g, "\\'") + '\')">🗑 Delete</button>' : '') +
         '</div>' +
       '</div>';
     }).join("");
