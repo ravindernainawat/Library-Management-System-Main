@@ -1,6 +1,6 @@
-# BookSphere — Full-Stack Library Management System
+# BookSphere — Full-Stack Advance Library Management System
 
-**BookSphere** is a premium, modern, full-stack Library Management System tailored for educational institutions (specifically pre-configured for **K.R. Mangalam University - KRMU**). 
+**BookSphere** is a premium, modern, full-stack Advance Library Management System tailored for educational institutions (specifically pre-configured for **K.R. Mangalam University - KRMU**). 
 
 It features secure role-based access, fine calculation, QR code tracking, reservation waitlists, digital eBook reading, peer-to-peer book exchange, and a built-in AI Library Assistant powered by the Google Gemini API.
 

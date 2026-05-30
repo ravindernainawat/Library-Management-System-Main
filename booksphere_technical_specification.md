@@ -4,7 +4,7 @@
 
 ## 💎 Executive Overview
 
-**BookSphere v2.0** is an enterprise-grade, high-performance, and secure **Library Management System** engineered for modern educational institutions (pre-configured for K.R. Mangalam University - KRMU). 
+**BookSphere v2.0** is an enterprise-grade, high-performance, and secure **Advance Library Management System** engineered for modern educational institutions (pre-configured for K.R. Mangalam University - KRMU). 
 
 This document provides an exhaustive, **A-to-Z technical architecture specification and feature inventory**. It serves as an ultimate guide to the system’s design, engineering capabilities, security protocols, and operational parameters—entirely free of sensitive credentials.
 

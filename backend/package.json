@@ -1,7 +1,7 @@
 {
   "name": "booksphere-backend",
   "version": "2.0.0",
-  "description": "BookSphere Library Management API — Full Feature",
+  "description": "BookSphere Advance Library Management API — Full Feature",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -12,7 +12,7 @@ router.post('/', verifyToken, async (req, res) => {
     const books = await Book.find({}).lean();
     const bookList = books.map(b => `- "${b.title}" by ${b.author} (Category: ${b.category}, Available: ${b.availableCopies}/${b.totalCopies})`).join('\n');
     
-    const systemPrompt = `You are the AI assistant for BookSphere, a modern library management system.
+    const systemPrompt = `You are the AI assistant for BookSphere, an Advance library management system.
 Your job is to help users find books, understand library rules, and provide helpful information.
 Keep your answers concise, friendly, and formatted nicely with markdown or bullet points.
 
