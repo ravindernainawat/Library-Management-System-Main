@@ -6,7 +6,8 @@ const Notification = require("../models/Notification");
 const OTP = require("../models/OTP");
 const { logActivity, sendEmail } = require("../utils");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) { console.error("FATAL: JWT_SECRET is not set in environment variables. Server cannot start securely."); process.exit(1); }
 const { validateRegister, validateLogin } = require("../middleware/validate");
 const { verifyToken, verifyOwner } = require("../middleware/auth");
 const rateLimit = require("express-rate-limit");

@@ -263,23 +263,16 @@ async function seedDatabase() {
   let bcrypt; try { bcrypt = require("bcryptjs"); } catch(e) {}
   const hash = async (pw) => bcrypt ? await bcrypt.hash(pw, 10) : pw;
 
+  // Only seed the real Owner account if no accounts exist at all.
+  // The Owner can create Admin/Teacher/Student accounts from the dashboard after first login.
   if (await Account.countDocuments() === 0) {
-    console.log("  → Seeding accounts and users...");
-    await Account.insertMany([
-      { name: "Owner",    email: "owner@booksphere.com",     password: await hash("owner123"),     role: "owner",   status: "active" },
-      { name: "Admin",    email: "admin@booksphere.com",     password: await hash("admin123"),     role: "admin",   status: "active" },
-      { name: "Teacher",  email: "teacher@booksphere.com",   password: await hash("teacher123"),   role: "teacher", status: "active" },
-      { name: "Student",  email: "student@booksphere.com",   password: await hash("student123"),   role: "student", status: "active" },
-      { name: "Rahul",    email: "rahul@booksphere.com",     password: await hash("rahul123"),     role: "student", status: "active" },
-      { name: "Priya",    email: "priya@booksphere.com",     password: await hash("priya123"),     role: "student", status: "active" },
-    ]);
-    await User.insertMany([
-      { name: "Student",  contact: "student@booksphere.com", role: "student" },
-      { name: "Teacher",  contact: "teacher@booksphere.com", role: "teacher" },
-      { name: "Rahul",    contact: "rahul@booksphere.com",   role: "student" },
-      { name: "Priya",    contact: "priya@booksphere.com",   role: "student" },
-    ]);
-    console.log("  ✓ Seeded default accounts and users");
+    console.log("  → Seeding owner account...");
+    const ownerPassword = process.env.OWNER_DEFAULT_PASSWORD || "Owner@1234";
+    await Account.create(
+      { name: "Ravinder Nainawat", email: "ravindernainawat007@gmail.com", password: await hash(ownerPassword), role: "owner", status: "active" }
+    );
+    console.log("  ✓ Seeded owner account (ravindernainawat007@gmail.com)");
+    console.log("    ⚠ Change the default password immediately after first login!");
   }
 
   if (await Book.countDocuments() === 0) {
