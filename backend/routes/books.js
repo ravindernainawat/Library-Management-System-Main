@@ -4,7 +4,9 @@ const Book = require("../models/Book");
 const BookCopy = require("../models/BookCopy");
 const Transaction = require("../models/Transaction");
 const Review = require("../models/Review");
+const User = require("../models/User");
 const { logActivity } = require("../utils");
+const { verifyAdmin, verifyToken } = require("../middleware/auth");
 let QRCode;
 try { QRCode = require("qrcode"); } catch(e) { QRCode = null; }
 
@@ -59,7 +61,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ADD book
-router.post("/", async (req, res) => {
+router.post("/", verifyAdmin, async (req, res) => {
   try {
     const { title, author, category, quantity, isbn, description, publisher, year, department, branch } = req.body;
     if (!title || !author || !category || !quantity) return res.status(400).json({ message: "Title, author, category & quantity required." });
@@ -77,7 +79,7 @@ router.post("/", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 // ADD bulk books
-router.post("/bulk", async (req, res) => {
+router.post("/bulk", verifyAdmin, async (req, res) => {
   try {
     const { books } = req.body;
     if (!books || !Array.isArray(books) || books.length === 0) {
@@ -122,7 +124,7 @@ router.post("/bulk", async (req, res) => {
 });
 
 // EDIT book
-router.put("/:id", async (req, res) => {
+router.put("/:id", verifyAdmin, async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
     if (!book) return res.status(404).json({ message: "Book not found." });
@@ -157,7 +159,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE book
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verifyAdmin, async (req, res) => {
   try {
     const hasActive = await Transaction.findOne({ bookId: req.params.id, status: "issued" });
     if (hasActive) return res.status(400).json({ message: "Cannot delete — book has active issues." });
@@ -176,8 +178,24 @@ router.get("/:id/copies", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// GET current borrowers for a book
+router.get("/:id/borrowers", verifyToken, async (req, res) => {
+  try {
+    const txs = await Transaction.find({ bookId: req.params.id, status: "issued" });
+    const borrowers = [];
+    for (const t of txs) {
+      borrowers.push({
+        userName: t.userName,
+        dueDate: t.dueDate,
+        issueDate: t.issueDate
+      });
+    }
+    res.json({ success: true, borrowers });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // UPDATE copy (shelf location, condition)
-router.put("/copies/:copyId", async (req, res) => {
+router.put("/copies/:copyId", verifyAdmin, async (req, res) => {
   try {
     const { aisle, rack, position, condition } = req.body;
     const update = {};
@@ -195,7 +213,7 @@ router.put("/copies/:copyId", async (req, res) => {
 });
 
 // ADD damage to copy
-router.post("/copies/:copyId/damage", async (req, res) => {
+router.post("/copies/:copyId/damage", verifyAdmin, async (req, res) => {
   try {
     const { description, reportedBy } = req.body;
     const copy = await BookCopy.findByIdAndUpdate(req.params.copyId,

@@ -9,13 +9,13 @@ const Notification = require("../models/Notification");
 const Reservation = require("../models/Reservation");
 const Wishlist = require("../models/Wishlist");
 const { logActivity, notifyReservationQueue, calcFine } = require("../utils");
-
+const { verifyAdmin } = require("../middleware/auth");
 // Issue limits by role
 const ISSUE_LIMITS = { student: 3, teacher: 5, admin: 10, owner: 10 };
 const DUE_DAYS    = { student: 14, teacher: 30, admin: 30, owner: 30 };
 
 // GET all transactions
-router.get("/", async (req, res) => {
+router.get("/", verifyAdmin, async (req, res) => {
   try {
     const txs = await Transaction.find().sort({ createdAt: -1 });
     const enriched = [];
@@ -31,6 +31,10 @@ router.get("/", async (req, res) => {
 // GET history for a user
 router.get("/history/:userName", async (req, res) => {
   try {
+    // Authorization Check: Student can only view their own history; Admin/Owner can view anyone's.
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own history." });
+    }
     const txs = await Transaction.find({ userName: req.params.userName }).sort({ createdAt: -1 });
     const enriched = [];
     for (const t of txs) {
@@ -43,7 +47,7 @@ router.get("/history/:userName", async (req, res) => {
 });
 
 // ISSUE book (manual)
-router.post("/issue", async (req, res) => {
+router.post("/issue", verifyAdmin, async (req, res) => {
   try {
     const { bookId, userId, issuedBy } = req.body;
     if (!bookId || !userId) return res.status(400).json({ message: "Book and user required." });
@@ -106,7 +110,7 @@ router.post("/issue", async (req, res) => {
 });
 
 // ISSUE by QR scan
-router.post("/issue-qr", async (req, res) => {
+router.post("/issue-qr", verifyAdmin, async (req, res) => {
   try {
     const { qrData, userId, issuedBy } = req.body;
     if (!qrData || !userId) return res.status(400).json({ message: "QR data and user required." });
@@ -172,7 +176,7 @@ router.post("/issue-qr", async (req, res) => {
 });
 
 // RETURN book
-router.post("/return/:id", async (req, res) => {
+router.post("/return/:id", verifyAdmin, async (req, res) => {
   try {
     const tx = await Transaction.findById(req.params.id);
     if (!tx || tx.status === "returned") return res.status(400).json({ message: "Already returned." });
@@ -224,7 +228,7 @@ router.post("/return/:id", async (req, res) => {
 });
 
 // RETURN by QR scan
-router.post("/return-qr", async (req, res) => {
+router.post("/return-qr", verifyAdmin, async (req, res) => {
   try {
     const { qrData } = req.body;
     if (!qrData) return res.status(400).json({ message: "QR data required." });
@@ -263,7 +267,7 @@ router.post("/return-qr", async (req, res) => {
 });
 
 // ADD damage fine to transaction
-router.put("/:id/damage-fine", async (req, res) => {
+router.put("/:id/damage-fine", verifyAdmin, async (req, res) => {
   try {
     const { damageFine, damageNotes, addedBy } = req.body;
     const tx = await Transaction.findById(req.params.id);
@@ -279,7 +283,7 @@ router.put("/:id/damage-fine", async (req, res) => {
 });
 
 // RECORD PAYMENT
-router.put("/:id/pay", async (req, res) => {
+router.put("/:id/pay", verifyAdmin, async (req, res) => {
   try {
     const { paymentMethod, paidBy } = req.body;
     const tx = await Transaction.findById(req.params.id);
@@ -300,6 +304,11 @@ router.post("/pay-fine/:id", async (req, res) => {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
     
+    // Authorization Check: Student can only pay their own fine; Admin/Owner can pay anyone's fine.
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only pay your own fines." });
+    }
+    
     tx.fineStatus = "paid";
     tx.paymentMethod = "online_stripe_mock";
     tx.paymentDate = new Date();
@@ -317,6 +326,11 @@ router.put("/:id/renew", async (req, res) => {
   try {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
+    
+    // Authorization Check: Student can only renew their own issue; Admin/Owner can renew anyone's.
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only renew your own active issues." });
+    }
     if (tx.status !== "issued") return res.status(400).json({ success: false, message: "Only active issues can be renewed." });
     
     const now = new Date();

@@ -322,7 +322,7 @@ function updateDashboardStats() {
   // Load extra dashboard data
   renderDashCategoryDonut();
   renderDashTopBooks();
-  renderDashRecentActivities();
+  if (isAdmin()) renderDashRecentActivities();
   if (!isAdmin()) { loadRecommendations(); renderGamificationStats(); renderLeaderboard(); }
 }
 function loadStudentNotifCount() {
@@ -714,8 +714,9 @@ function renderBooks() {
     if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No books found.</p></td></tr>'; return; }
 
     // Get reviews for ratings and requests for student badges
-    Promise.all([apiGet("/requests")]).then(function (results) {
-      var requests = results[0];
+    var reqEndpoint = isAdmin() ? "/requests" : "/requests/my";
+    Promise.all([apiGet(reqEndpoint)]).then(function (results) {
+      var requests = Array.isArray(results[0]) ? results[0] : [];
       tbody.innerHTML = filtered.map(function (b) {
         var bid = b._id || b.id;
         var status = b.availableCopies > 0 ? '<span class="badge badge-success">Available (' + b.availableCopies + ")</span>" : '<span class="badge badge-danger">All Issued</span>';
@@ -737,6 +738,7 @@ function renderBooks() {
           } else {
             actions = '<td class="actions-cell">' +
               '<button class="btn btn-primary btn-sm" onclick="openBookDetail(\'' + bid + "')\">" + "View</button> " +
+              '<button class="btn btn-sm" style="background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2)" onclick="showBorrowers(\'' + bid + '\',\'' + b.title.replace(/'/g, "\\'") + '\')">Contact Borrower</button> ' +
               '<button class="btn btn-sm" style="background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2)" onclick="addToWishlist(\'' + bid + "')\">" + "♥ Save</button></td>";
           }
         }
@@ -799,6 +801,37 @@ function openBookDetail(bookId) {
 function closeModal(id) { document.getElementById(id).style.display = "none"; }
 function hoverStars(el, rating) { var stars = el.parentNode.children; for (var i = 0; i < stars.length; i++) stars[i].classList.toggle("filled", i < rating); }
 function unhoverStars(el, rating) { var stars = el.parentNode.children; for (var i = 0; i < stars.length; i++) stars[i].classList.toggle("filled", i < rating); }
+
+// ============ CONTACT BORROWERS MODAL ============
+function showBorrowers(bookId, bookTitle) {
+  apiGet("/books/" + bookId + "/borrowers").then(function (d) {
+    var modal = document.getElementById("borrowersModal");
+    var content = document.getElementById("borrowersContent");
+    var listHtml = "";
+
+    if (!d.borrowers || d.borrowers.length === 0) {
+      listHtml = '<p style="color:var(--text-muted);padding:12px 0">No active borrowers found. Maybe it is lost or in transit.</p>';
+    } else {
+      listHtml = d.borrowers.map(function(b) {
+        var dueStr = b.dueDate ? new Date(b.dueDate).toLocaleDateString("en-IN") : "Unknown";
+        return '<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px; margin-bottom:8px; border:1px solid var(--glass-border);">' +
+          '<div><strong style="color:#fff; font-size:1.05rem;">User ID: ' + b.userName + '</strong>' +
+          '<div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Due back by: ' + dueStr + '</div></div>' +
+          '<button class="btn btn-primary btn-sm" onclick="selectBorrowerForExchange(\'' + b.userName.replace(/'/g, "\\'") + '\', \'' + bookTitle.replace(/'/g, "\\'") + '\'); closeModal(\'borrowersModal\'); switchSection(\'section-exchange\')">Request Exchange</button></div>';
+      }).join("");
+    }
+
+    content.innerHTML = 
+      '<button class="modal-close" onclick="closeModal(\'borrowersModal\')">&times;</button>' +
+      '<h2 style="margin-bottom:15px; font-size:1.3rem;">Borrowers of "' + bookTitle + '"</h2>' +
+      '<p style="color:var(--text-muted); margin-bottom:15px; font-size:0.9rem;">The following users currently have this book. For privacy, contact details are hidden. Click "Request Exchange" to send them an in-app message.</p>' + 
+      listHtml;
+      
+    modal.style.display = "flex";
+  }).catch(function(err) {
+    showToast("Error fetching borrowers", "error");
+  });
+}
 
 var selectedRating = 0;
 function submitRating(bookId, rating) { selectedRating = rating; }
@@ -899,8 +932,9 @@ function renderBorrowingHistory() {
 function renderMyFines() {
   var user = getCurrentUser(); if (!user) return;
   apiGet("/transactions/history/" + encodeURIComponent(user.name)).then(function (txs) {
+    var fineTxs = Array.isArray(txs) ? txs.filter(function(t) { return t.fine > 0 || t.damageFine > 0 || t.totalFine > 0; }) : [];
+    
     var tb = document.getElementById("my-fines-table-body");
-    var fineTxs = txs.filter(function(t) { return t.fine > 0 || t.damageFine > 0 || t.totalFine > 0; });
     
     if (fineTxs.length === 0) { 
       if(tb) tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>You have no fines! 🎉</p></td></tr>'; 
@@ -939,7 +973,7 @@ function renderNotifications() {
   var user = getCurrentUser(); if (!user) return;
   apiGet("/notifications/" + encodeURIComponent(user.email)).then(function (notifs) {
     var container = document.getElementById("notifications-list");
-    if (notifs.length === 0) { container.innerHTML = '<p class="empty-state">No notifications.</p>'; return; }
+    if (!Array.isArray(notifs) || notifs.length === 0) { container.innerHTML = '<p class="empty-state">No notifications.</p>'; return; }
     container.innerHTML = notifs.map(function (n) {
       return '<div class="notif-item ' + (n.read ? "" : "unread") + '" onclick="markNotifRead(\'' + (n._id || n.id) + '\')">' +
         '<span class="notif-dot"></span><div><div class="notif-message">' + n.message + '</div><div class="notif-time">' + formatDateTime(n.createdAt) + "</div></div></div>";
@@ -1100,7 +1134,7 @@ function renderRequests() {
   apiGet("/requests").then(function (reqs) {
     var pending = reqs.filter(function (r) { return r.status === "pending"; });
     var approved = reqs.filter(function (r) { return r.status === "approved"; });
-    var processed = reqs.filter(function (r) { return r.status === "issued" || r.status === "rejected"; });
+    var processed = reqs.filter(function (r) { return r.status === "issued" || r.status === "rejected" || r.status === "expired"; });
     var ptb = document.getElementById("requests-table-body");
     var htb = document.getElementById("requests-history-body");
     var activeRows = "";
@@ -1121,7 +1155,7 @@ function renderRequests() {
     ptb.innerHTML = activeRows || '<tr><td colspan="5" class="empty-state"><p>No pending requests.</p></td></tr>';
     htb.innerHTML = processed.length === 0 ? '<tr><td colspan="4" class="empty-state"><p>No past requests.</p></td></tr>' :
       processed.map(function (r) {
-        var badge = r.status === "issued" ? '<span class="badge badge-success">Issued</span>' : '<span class="badge badge-danger">Rejected</span>';
+        var badge = r.status === "issued" ? '<span class="badge badge-success">Issued</span>' : r.status === "expired" ? '<span class="badge badge-danger">Expired</span>' : '<span class="badge badge-danger">Rejected</span>';
         return "<tr><td>" + r.userName + "</td><td>" + r.bookTitle + "</td><td>" + formatDate(r.requestDate) + "</td><td>" + badge + "</td></tr>";
       }).join("");
   });
@@ -1135,7 +1169,7 @@ function renderAdminExchanges() {
   apiGet("/exchanges").then(function (exchanges) {
     var tb = document.getElementById("admin-exchanges-body");
     if (!tb) return;
-    if (exchanges.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges.</p></td></tr>'; return; }
+    if (!Array.isArray(exchanges) || exchanges.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges.</p></td></tr>'; return; }
     tb.innerHTML = exchanges.map(function(e) {
       var badge = '<span class="badge badge-' + e.status + '">' + e.status + '</span>';
       var action = "--";
@@ -1156,12 +1190,12 @@ function approveAdminExchange(id) {
 
 function renderMyRequests() {
   var user = getCurrentUser(); if (!user) return;
-  apiGet("/requests").then(function (reqs) {
-    var mine = reqs.filter(function (r) { return r.userName === user.name; });
+  apiGet("/requests/my").then(function (reqs) {
+    var mine = Array.isArray(reqs) ? reqs : [];
     var tb = document.getElementById("my-requests-body");
     if (mine.length === 0) { tb.innerHTML = '<tr><td colspan="3" class="empty-state"><p>No requests yet.</p></td></tr>'; return; }
     tb.innerHTML = mine.map(function (r) {
-      var badge = r.status === "pending" ? '<span class="badge badge-warning">Pending</span>' : r.status === "approved" ? '<span class="badge badge-success">Approved — Collect from Library</span>' : r.status === "issued" ? '<span class="badge badge-success">Issued</span>' : '<span class="badge badge-danger">Rejected</span>';
+      var badge = r.status === "pending" ? '<span class="badge badge-warning">Pending</span>' : r.status === "approved" ? '<span class="badge badge-success">Approved — Collect from Library</span>' : r.status === "issued" ? '<span class="badge badge-success">Issued</span>' : r.status === "expired" ? '<span class="badge badge-danger">Expired</span>' : '<span class="badge badge-danger">Rejected</span>';
       return '<tr><td style="color:var(--text-primary);font-weight:500">' + r.bookTitle + "</td><td>" + formatDate(r.requestDate) + "</td><td>" + badge + "</td></tr>";
     }).join("");
   });
@@ -1340,6 +1374,7 @@ function renderDigitalLibrary() {
   var search = (document.getElementById("ebook-search") || {}).value || "";
   search = search.toLowerCase();
   apiGet("/ebooks").then(function (ebooks) {
+    if (!Array.isArray(ebooks)) { ebooks = []; }
     var filtered = ebooks.filter(function (e) {
       return e.title.toLowerCase().includes(search) || e.author.toLowerCase().includes(search) || e.category.toLowerCase().includes(search);
     });
@@ -1660,7 +1695,7 @@ function renderReservations() {
   apiGet("/reservations/user/" + encodeURIComponent(user.name)).then(function(reservations) {
     var tb = document.getElementById("reservations-table-body");
     if (!tb) return;
-    if (!reservations.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>'; return; }
+    if (!Array.isArray(reservations) || !reservations.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>'; return; }
     tb.innerHTML = reservations.map(function(r) {
       var statusBadge, cancelBtn = "--";
       if (r.status === "waiting") {
@@ -1703,7 +1738,7 @@ function renderExchanges() {
   apiGet("/exchanges/user/" + encodeURIComponent(user.name)).then(function(exchanges) {
     var tb = document.getElementById("exchange-table-body");
     if (!tb) return;
-    if (!exchanges.length) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges yet.</p></td></tr>'; return; }
+    if (!Array.isArray(exchanges) || !exchanges.length) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges yet.</p></td></tr>'; return; }
     tb.innerHTML = exchanges.map(function(e) {
       var statusBadge = '<span class="badge badge-' + e.status + '">' + e.status + '</span>';
       

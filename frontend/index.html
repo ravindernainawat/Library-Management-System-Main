@@ -10,12 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&amp;family=Outfit:wght@400;600;800&amp;display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-color: #0a0e17;
+      --bg-color: #051630;
       --text-color: #f0f4f8;
-      --accent: #d4af37;
-      --accent-light: #f3e5ab;
-      --glass-bg: rgba(19, 25, 38, 0.45);
-      --glass-border: rgba(255, 255, 255, 0.05);
+      --accent: #cb000d;
+      --accent-light: #e31e24;
+      --glass-bg: rgba(0, 23, 50, 0.55);
+      --glass-border: rgba(255, 255, 255, 0.08);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -85,11 +85,11 @@
       font-weight: 600;
       font-size: 0.9rem;
       transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25);
+      box-shadow: 0 4px 15px rgba(203, 0, 13, 0.25);
     }
     .nav-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4);
+      box-shadow: 0 8px 25px rgba(203, 0, 13, 0.4);
       background: var(--accent-light);
     }
 
@@ -156,11 +156,11 @@
       font-weight: 700;
       font-size: 1rem;
       transition: all 0.3s ease;
-      box-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
+      box-shadow: 0 4px 20px rgba(203, 0, 13, 0.3);
     }
     .hero-cta a:hover {
       transform: translateY(-3px);
-      box-shadow: 0 8px 30px rgba(212, 175, 55, 0.5);
+      box-shadow: 0 8px 30px rgba(203, 0, 13, 0.5);
     }
 
     .scroll-indicator {
@@ -264,8 +264,8 @@
     }
     .feature-list li .check {
       width: 22px; height: 22px;
-      background: rgba(212, 175, 55, 0.15);
-      border: 1px solid rgba(212, 175, 55, 0.3);
+      background: rgba(203, 0, 13, 0.15);
+      border: 1px solid rgba(203, 0, 13, 0.3);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -308,7 +308,7 @@
       background: rgba(255,255,255,0.06);
       border-radius: 5px;
     }
-    .mock-line.accent { background: rgba(212, 175, 55, 0.3); width: 35%; height: 16px; }
+    .mock-line.accent { background: rgba(203, 0, 13, 0.3); width: 35%; height: 16px; }
     .mock-line:nth-child(2) { width: 75%; }
     .mock-line:nth-child(3) { width: 55%; }
     .mock-line:nth-child(4) { width: 85%; }
@@ -350,6 +350,13 @@
     }
     .top-nav {
       padding: clamp(14px, 2vw, 20px) clamp(20px, 4vw, 50px);
+    }
+
+    #google_translate_element {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
     }
 
     /* ── 2XL: 1440px+ (large monitors) ── */
@@ -472,7 +479,7 @@
       border-radius: 40px;
       background: transparent;
       color: var(--accent);
-      border: 2px solid rgba(212, 175, 55, 0.4);
+      border: 2px solid rgba(203, 0, 13, 0.4);
       text-decoration: none;
       font-weight: 700;
       transition: all 0.3s ease;
@@ -491,9 +498,234 @@
     .cta-button:hover {
       color: #000;
       border-color: var(--accent);
-      box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
+      box-shadow: 0 0 30px rgba(203, 0, 13, 0.4);
     }
     .cta-button:hover::before { width: 100%; }
+
+    /* ==========================================================================
+       SITE FOOTER (K.R. MANGALAM UNIVERSITY)
+       ========================================================================== */
+    .site-footer {
+      background: #051630;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 70px 5% 30px;
+      color: #a0a4b0;
+      font-size: 0.92rem;
+      position: relative;
+      z-index: 10;
+    }
+    
+    .footer-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1.2fr 1.3fr;
+      gap: 40px;
+    }
+    
+    .footer-col h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      color: #fff;
+      margin-bottom: 22px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      position: relative;
+      padding-bottom: 8px;
+    }
+    .footer-col h3::after {
+      content: '';
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 35px; height: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+    }
+    
+    .footer-col .uni-logo {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin-bottom: 18px;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    }
+    
+    .footer-col p {
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+    
+    .footer-readmore-btn {
+      display: inline-block;
+      padding: 8px 20px;
+      background: #c00000; /* Rich crimson red for KRMU logo style */
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.82rem;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(192, 0, 0, 0.25);
+    }
+    .footer-readmore-btn:hover {
+      background: #e60000;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(192, 0, 0, 0.4);
+    }
+    
+    .footer-links {
+      list-style: none;
+      padding: 0;
+    }
+    .footer-links li {
+      margin-bottom: 12px;
+    }
+    .footer-links a {
+      color: #a0a4b0;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      display: inline-block;
+    }
+    .footer-links a:hover {
+      color: var(--accent);
+      transform: translateX(4px);
+    }
+    
+    .contact-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .contact-item svg {
+      width: 18px;
+      height: 18px;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+    
+    .social-links {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+    .social-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      transition: all 0.3s ease;
+      text-decoration: none;
+    }
+    .social-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .social-icon:hover {
+      background: var(--accent);
+      color: #000;
+      transform: translateY(-3px);
+      box-shadow: 0 5px 15px rgba(203, 0, 13, 0.3);
+      border-color: var(--accent);
+    }
+    
+    .accreditations {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .badge-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+    }
+    .badge-card:hover {
+      border-color: rgba(203, 0, 13, 0.3);
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.04);
+    }
+    .badge-card.naac {
+      border-left: 4px solid #1e3a8a; /* Deep blue */
+    }
+    .badge-card.gptw {
+      border-left: 4px solid #c00000; /* Red */
+    }
+    .badge-card.ioh {
+      border-left: 4px solid #f59e0b; /* Amber */
+    }
+    
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 50px auto 0;
+      padding-top: 25px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
+    }
+    
+    .footer-bottom a {
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    .footer-bottom a:hover {
+      color: var(--accent);
+    }
+    
+    @media (max-width: 1024px) {
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+      }
+    }
+    @media (max-width: 600px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+      .footer-bottom {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+      }
+    }
+    /* AI Chatbot Styles */
+    .chatbot-toggle-btn { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #000; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(203, 0, 13, 0.4); z-index: 9999; display: flex; justify-content: center; align-items: center; transition: all 0.3s ease; }
+    .chatbot-toggle-btn:hover { transform: scale(1.1); }
+    .chatbot-container { position: fixed; bottom: 100px; right: 30px; width: 350px; height: 450px; background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 16px; z-index: 9999; display: none; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+    .chatbot-header { padding: 15px; background: rgba(203, 0, 13, 0.1); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer; }
+    .chatbot-header .close-chat { margin-left: auto; font-size: 20px; }
+    .chatbot-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .chat-message { padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; max-width: 85%; line-height: 1.4; }
+    .chat-message.ai-message { background: rgba(255, 255, 255, 0.05); align-self: flex-start; border-bottom-left-radius: 2px; }
+    .chat-message.user-message { background: var(--accent); color: #000; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chatbot-input { display: flex; padding: 15px; border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); }
+    .chatbot-input input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; padding: 10px 15px; border-radius: 20px; outline: none; }
+    .chatbot-input button { background: var(--accent); color: #000; border: none; padding: 0 15px; margin-left: 10px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    @media (max-width: 480px) {
+      .chatbot-container { width: 90vw; right: 5vw; bottom: 90px; height: 400px; }
+      .chatbot-toggle-btn { width: 50px; height: 50px; bottom: 20px; right: 20px; }
+    }
   </style>
 </head>
 <body>
@@ -501,7 +733,7 @@
   <div class="parallax-bg"></div>
   <div class="bg-overlay"></div>
 
-  <div id="google_translate_element" style="position: absolute; top: 20px; left: 20px; z-index: 1000;"></div>
+  <div id="google_translate_element"></div>
   <script type="text/javascript">
     function googleTranslateElementInit() {
       new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
@@ -576,7 +808,7 @@
           </div>
           <div class="feature-visual">
             <div class="mock-ui" style="align-items:center; justify-content:center;">
-              <div style="width:70px; height:70px; border-radius:50%; border:3px solid rgba(212,175,55,0.3); margin-bottom:16px;"></div>
+              <div style="width:70px; height:70px; border-radius:50%; border:3px solid rgba(203,0,13,0.3); margin-bottom:16px;"></div>
               <div class="mock-line" style="width:60%"></div>
               <div class="mock-line" style="width:35%"></div>
               <div class="mock-line accent" style="width:50%; margin-top:16px;"></div>
@@ -653,9 +885,176 @@
       <p>Manage your library with ease using our modern platform.</p>
       <a href="login.html" class="cta-button">Launch Dashboard</a>
     </div>
+
+    <!-- ==========================================================================
+         UNIVERSITY FOOTER
+         ========================================================================== -->
+    <footer class="site-footer">
+      <div class="footer-grid">
+        <!-- Col 1: About Us -->
+        <div class="footer-col">
+          <h3>About Us</h3>
+          <img src="krmu_logo.png" alt="K.R. Mangalam University Logo" class="uni-logo" style="width: 140px; height: auto; margin-bottom: 20px;">
+          <p style="font-size: 0.85rem; margin-bottom: 20px;">K.R. Mangalam University, established in 2013 under the Haryana Private University Act, is a pioneering institution committed to transformative education and nurturing future leaders.</p>
+          <a href="https://www.krmangalam.edu.in/" target="_blank" class="footer-readmore-btn" style="background: #e3000f; border-radius: 4px; padding: 10px 24px; font-size: 0.9rem;">Read More</a>
+        </div>
+
+        <!-- Col 2: Services -->
+        <div class="footer-col">
+          <h3>Quick Links</h3>
+          <ul class="footer-links">
+            <li><a href="#hero">Home</a></li>
+            <li><a href="#feature-books">Book Management</a></li>
+            <li><a href="#feature-circulation">Circulation System</a></li>
+            <li><a href="#feature-fines">Fine Tracking</a></li>
+            <li><a href="#feature-analytics">Analytics Insights</a></li>
+            <li><a href="login.html">Member Login</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Address -->
+        <div class="footer-col">
+          <h3>Address</h3>
+          <div class="contact-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <span>Sohna Road, Gurugram,<br>Haryana - 122103</span>
+          </div>
+          <div class="contact-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <a href="mailto:welcome@krmangalam.edu.in" style="color:inherit; text-decoration:none;">welcome@krmangalam.edu.in</a>
+          </div>
+          <div class="contact-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            <span>01148884888, 8800697010 – 15, 8192888444</span>
+          </div>
+        </div>
+
+        <!-- Col 4: Follow Us -->
+        <div class="footer-col">
+          <h3>Follow Us</h3>
+          <div class="social-links">
+            <a href="https://www.facebook.com/krmuniv/" target="_blank" class="social-icon" aria-label="Facebook">
+              <svg viewBox="0 0 24 24"><path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.14H6.5v4.18h3v11.84h5V11.64h3.86l.41-4.18z"/></svg>
+            </a>
+            <a href="https://www.instagram.com/krmuniv/" target="_blank" class="social-icon" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            </a>
+            <a href="https://www.youtube.com/@KRMangalamUniversity" target="_blank" class="social-icon" aria-label="YouTube">
+              <svg viewBox="0 0 24 24"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.53 3.545 12 3.545 12 3.545s-7.53 0-9.388.508a3.003 3.003 0 0 0-2.11 2.11C0 8.022 0 12 0 12s0 3.978.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.858.508 9.388.508 9.388.508s7.53 0 9.388-.508a3.003 3.003 0 0 0 2.11-2.11C24 15.978 24 12 24 12s0-3.978-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            </a>
+            <a href="https://x.com/krmangalamuniv" target="_blank" class="social-icon" aria-label="X (Twitter)">
+              <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+            <a href="https://www.linkedin.com/school/k-r-mangalam-university/" target="_blank" class="social-icon" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+            </a>
+          </div>
+          <div class="accreditations">
+            <div class="badge-card naac" title="Accredited with Grade A by NAAC">
+              <span style="color:var(--accent);">NAAC</span>
+              <span>Grade A Accredited</span>
+            </div>
+            <div class="badge-card gptw" title="Great Place to Work Certified">
+              <span style="color:#ef4444;">GPTW</span>
+              <span>Great Place to Work</span>
+            </div>
+            <div class="badge-card ioh" title="QS I-GAUGE Institution of Happiness Certified">
+              <span style="color:#fbbf24;">IOH</span>
+              <span>Certified 2025-26</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 BookSphere & K.R. Mangalam University. All rights reserved.</div>
+        <div>Designed for KRMU Academic Library | <a href="https://www.krmangalam.edu.in/privacy-policy" target="_blank">Privacy Policy</a></div>
+      </div>
+    </footer>
   </main>
 
+  <!-- Floating AI Chatbot Widget -->
+  <div class="chatbot-container" id="chatbot-container">
+    <div class="chatbot-header" onclick="toggleChatbot()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>BookSphere AI</span>
+      <span class="close-chat">×</span>
+    </div>
+    <div class="chatbot-messages" id="chatbot-messages">
+      <div class="chat-message ai-message">Hi! I'm your library AI assistant. How can I help you find a book today?</div>
+    </div>
+    <div class="chatbot-input">
+      <input type="text" id="chat-input" placeholder="Ask about books, rules..." onkeypress="handleChatKeyPress(event)">
+      <button onclick="sendChatMessage()">Send</button>
+    </div>
+  </div>
+
+  <button class="chatbot-toggle-btn" id="chatbot-toggle-btn" onclick="toggleChatbot()">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+  </button>
+
   <script>
+    // --- AI Chatbot ---
+    let isChatbotOpen = false;
+    function toggleChatbot() {
+      const container = document.getElementById('chatbot-container');
+      isChatbotOpen = !isChatbotOpen;
+      container.style.display = isChatbotOpen ? 'flex' : 'none';
+    }
+
+    function handleChatKeyPress(e) {
+      if (e.key === 'Enter') sendChatMessage();
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      const messagesContainer = document.getElementById('chatbot-messages');
+      
+      // User message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-message user-message';
+      userMsg.textContent = text;
+      messagesContainer.appendChild(userMsg);
+      
+      input.value = '';
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      // Fake AI response delay
+      setTimeout(() => {
+        const aiMsg = document.createElement('div');
+        aiMsg.className = 'chat-message ai-message';
+        
+        const lowerText = text.toLowerCase();
+        let response = "I'm still learning! Contact the librarian for complex queries.";
+        if (lowerText.includes('fine') || lowerText.includes('late')) {
+          response = "Late fees are calculated at Rs. 5 per day after the 14-day return period.";
+        } else if (lowerText.includes('borrow') || lowerText.includes('how many')) {
+          response = "Students can borrow up to 3 books. Teachers can borrow up to 10 books.";
+        } else if (lowerText.includes('hello') || lowerText.includes('hi')) {
+          response = "Hello! How can I assist you with the library today?";
+        }
+        
+        aiMsg.textContent = response;
+        messagesContainer.appendChild(aiMsg);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }, 600);
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
       var observer = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {

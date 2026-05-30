@@ -5,7 +5,7 @@ const requestSchema = new mongoose.Schema({
   bookTitle: { type: String, required: true },
   userName: { type: String, required: true },
   userEmail: { type: String, required: true },
-  status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+  status: { type: String, enum: ["pending", "approved", "rejected", "issued", "expired"], default: "pending" },
   requestDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 

@@ -10,11 +10,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0e17;
-      --accent: #d4af37;
-      --accent-light: #f3e5ab;
-      --accent-glow: rgba(212, 175, 55, 0.25);
-      --glass-bg: rgba(19, 25, 38, 0.5);
+      --bg-primary: #051630;
+      --accent: #cb000d;
+      --accent-light: #e31e24;
+      --accent-glow: rgba(203, 0, 13, 0.25);
+      --glass-bg: rgba(0, 23, 50, 0.5);
       --glass-border: rgba(255, 255, 255, 0.05);
       --glass-blur: blur(28px);
       --text: #f0f4f8;
@@ -28,7 +28,7 @@
     h1,h2,h3 { font-family: 'Outfit', sans-serif; }
     .bg-grid { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px); background-size: 50px 50px; }
     .orb { position: fixed; border-radius: 50%; filter: blur(100px); z-index: 0; animation: orbDrift 25s infinite ease-in-out; }
-    .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(212,175,55,0.12), transparent 70%); top: -200px; left: -150px; }
+    .orb-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(203,0,13,0.12), transparent 70%); top: -200px; left: -150px; }
     .orb-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(59,130,246,0.08), transparent 70%); bottom: -200px; right: -150px; animation-delay: -10s; }
     @keyframes orbDrift { 0%,100% { transform: translate(0,0); } 33% { transform: translate(30px,-40px); } 66% { transform: translate(-20px,30px); } }
     .login-page { position: relative; z-index: 10; width: 100%; max-width: 560px; padding: 20px; }
@@ -41,10 +41,10 @@
     .security-badge { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 24px; padding: 10px 18px; background: rgba(46,213,115,0.06); border: 1px solid rgba(46,213,115,0.15); border-radius: 10px; font-size: 0.78rem; color: var(--success); font-weight: 500; }
     .security-badge svg { width: 16px; height: 16px; }
     /* Role Toggle — 2 rows */
-    .role-toggle { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.3); border-radius: 14px; padding: 6px; margin-bottom: 28px; border: 1px solid var(--glass-border); }
+    .role-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.3); border-radius: 14px; padding: 6px; margin-bottom: 28px; border: 1px solid var(--glass-border); }
     .role-toggle-btn { padding: 11px 0; text-align: center; border: none; background: transparent; color: var(--text-muted); font-size: 0.82rem; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; border-radius: 10px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .role-toggle-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
-    .role-toggle-btn.active { background: rgba(212,175,55,0.12); color: var(--accent-light); border: 1px solid rgba(212,175,55,0.2); }
+    .role-toggle-btn.active { background: rgba(203,0,13,0.12); color: var(--accent-light); border: 1px solid rgba(203,0,13,0.2); }
     .role-toggle-btn.active.r-student { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
     .role-toggle-btn.active.r-teacher { background: rgba(46,213,115,0.12); color: #2ed573; border: 1px solid rgba(46,213,115,0.2); }
     .role-toggle-btn.active.r-owner { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
@@ -56,7 +56,7 @@
     .form-group input::placeholder { color: var(--text-muted); }
     .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
     .login-btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--accent); color: #000; font-size: 1rem; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 20px var(--accent-glow); margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-    .login-btn:hover { background: var(--accent-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(212,175,55,0.4); }
+    .login-btn:hover { background: var(--accent-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(203,0,13,0.4); }
     .login-btn:disabled { opacity: 0.5; pointer-events: none; transform: none; }
     .spinner { width: 20px; height: 20px; border: 2.5px solid rgba(0,0,0,0.15); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -113,6 +113,23 @@
       .form-group input { padding: 12px 14px 12px 44px; font-size: 0.85rem; }
       .login-btn { padding: 13px; font-size: 0.9rem; }
       .back-link { font-size: 0.8rem; margin-bottom: 24px; }
+    }
+    /* AI Chatbot Styles */
+    .chatbot-toggle-btn { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); color: #000; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(203, 0, 13, 0.4); z-index: 9999; display: flex; justify-content: center; align-items: center; transition: all 0.3s ease; }
+    .chatbot-toggle-btn:hover { transform: scale(1.1); }
+    .chatbot-container { position: fixed; bottom: 100px; right: 30px; width: 350px; height: 450px; background: var(--glass-bg); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 16px; z-index: 9999; display: none; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden; }
+    .chatbot-header { padding: 15px; background: rgba(203, 0, 13, 0.1); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer; }
+    .chatbot-header .close-chat { margin-left: auto; font-size: 20px; }
+    .chatbot-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .chat-message { padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; max-width: 85%; line-height: 1.4; }
+    .chat-message.ai-message { background: rgba(255, 255, 255, 0.05); align-self: flex-start; border-bottom-left-radius: 2px; }
+    .chat-message.user-message { background: var(--accent); color: #000; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chatbot-input { display: flex; padding: 15px; border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); }
+    .chatbot-input input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; padding: 10px 15px; border-radius: 20px; outline: none; }
+    .chatbot-input button { background: var(--accent); color: #000; border: none; padding: 0 15px; margin-left: 10px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    @media (max-width: 480px) {
+      .chatbot-container { width: 90vw; right: 5vw; bottom: 90px; height: 400px; }
+      .chatbot-toggle-btn { width: 50px; height: 50px; bottom: 20px; right: 20px; }
     }
   </style>
 </head>
@@ -408,6 +425,80 @@
           document.getElementById('authBtn').disabled = false;
           errorEl.textContent = 'Error: ' + err.message + ' (Check LocalTunnel warning page)';
         });
+    }
+  </script>
+  <!-- Floating AI Chatbot Widget -->
+  <div class="chatbot-container" id="chatbot-container">
+    <div class="chatbot-header" onclick="toggleChatbot()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>BookSphere AI</span>
+      <span class="close-chat">×</span>
+    </div>
+    <div class="chatbot-messages" id="chatbot-messages">
+      <div class="chat-message ai-message">Hi! I'm your library AI assistant. How can I help you find a book today?</div>
+    </div>
+    <div class="chatbot-input">
+      <input type="text" id="chat-input" placeholder="Ask about books, rules..." onkeypress="handleChatKeyPress(event)">
+      <button onclick="sendChatMessage()">Send</button>
+    </div>
+  </div>
+
+  <button class="chatbot-toggle-btn" id="chatbot-toggle-btn" onclick="toggleChatbot()">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+  </button>
+
+  <script>
+    // --- AI Chatbot ---
+    let isChatbotOpen = false;
+    function toggleChatbot() {
+      const container = document.getElementById('chatbot-container');
+      isChatbotOpen = !isChatbotOpen;
+      container.style.display = isChatbotOpen ? 'flex' : 'none';
+    }
+
+    function handleChatKeyPress(e) {
+      if (e.key === 'Enter') sendChatMessage();
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      const messagesContainer = document.getElementById('chatbot-messages');
+      
+      // User message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-message user-message';
+      userMsg.textContent = text;
+      messagesContainer.appendChild(userMsg);
+      
+      input.value = '';
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      // Fake AI response delay
+      setTimeout(() => {
+        const aiMsg = document.createElement('div');
+        aiMsg.className = 'chat-message ai-message';
+        
+        const lowerText = text.toLowerCase();
+        let response = "I'm still learning! Contact the librarian for complex queries.";
+        if (lowerText.includes('fine') || lowerText.includes('late')) {
+          response = "Late fees are calculated at Rs. 5 per day after the 14-day return period.";
+        } else if (lowerText.includes('borrow') || lowerText.includes('how many')) {
+          response = "Students can borrow up to 3 books. Teachers can borrow up to 10 books.";
+        } else if (lowerText.includes('hello') || lowerText.includes('hi')) {
+          response = "Hello! How can I assist you with the library today?";
+        }
+        
+        aiMsg.textContent = response;
+        messagesContainer.appendChild(aiMsg);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }, 600);
     }
   </script>
 </body>

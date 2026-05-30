@@ -9,6 +9,7 @@ const User = require("../models/User");
 const Account = require("../models/Account");
 const BookCopy = require("../models/BookCopy");
 const { logActivity, calcFine } = require("../utils");
+const { verifyAdmin } = require("../middleware/auth");
 const PDFDocument = require("pdfkit");
 
 // ============ RESERVATIONS (24-hour hold) ============
@@ -18,6 +19,12 @@ router.post("/reservations", async (req, res) => {
   try {
     const { bookId, userName, userEmail } = req.body;
     if (!bookId || !userName) return res.status(400).json({ message: "Book and user required." });
+    
+    // Authorization Check: Student can only reserve books for themselves; Admin/Owner can reserve for anyone.
+    if (req.user.role !== "admin" && req.user.role !== "owner" && (req.user.name !== userName || (userEmail && req.user.email !== userEmail))) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only reserve books for yourself." });
+    }
+
     const book = await Book.findById(bookId);
     if (!book) return res.status(404).json({ message: "Book not found." });
 
@@ -52,6 +59,9 @@ router.post("/reservations", async (req, res) => {
 // Get user's reservations (active only)
 router.get("/reservations/user/:userName", async (req, res) => {
   try {
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own reservations." });
+    }
     // Auto-expire any past-due reservations first
     await expireOldReservations();
     const reservations = await Reservation.find({ userName: req.params.userName }).sort({ createdAt: -1 }).limit(20);
@@ -64,6 +74,9 @@ router.delete("/reservations/:id", async (req, res) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ message: "Reservation not found." });
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== reservation.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only cancel your own reservations." });
+    }
     if (reservation.status !== "waiting") return res.status(400).json({ message: "Reservation is already " + reservation.status + "." });
 
     reservation.status = "cancelled";
@@ -102,6 +115,10 @@ router.post("/exchanges", async (req, res) => {
     const { fromUser, fromUserEmail, toUser, toUserEmail, bookId, bookTitle, campusLocation, message } = req.body;
     if (!fromUser || !toUser || !bookId) return res.status(400).json({ message: "From user, to user, and book required." });
 
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== fromUser) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only initiate exchanges from your own account." });
+    }
+
     const existing = await Exchange.findOne({ fromUser, bookId, status: { $in: ["pending","accepted"] } });
     if (existing) return res.status(400).json({ message: "You already have an active exchange request for this book." });
 
@@ -116,13 +133,16 @@ router.post("/exchanges", async (req, res) => {
 // Get user's exchanges (sent and received)
 router.get("/exchanges/user/:userName", async (req, res) => {
   try {
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own exchanges." });
+    }
     const exchanges = await Exchange.find({ $or: [{ fromUser: req.params.userName }, { toUser: req.params.userName }] }).sort({ createdAt: -1 });
     res.json(exchanges.map(e => ({ ...e.toObject(), id: e._id })));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // Get ALL exchanges (Admin)
-router.get("/exchanges", async (req, res) => {
+router.get("/exchanges", verifyAdmin, async (req, res) => {
   try {
     const exchanges = await Exchange.find().sort({ createdAt: -1 });
     res.json(exchanges.map(e => ({ ...e.toObject(), id: e._id })));
@@ -133,6 +153,11 @@ router.get("/exchanges", async (req, res) => {
 router.put("/exchanges/:id/accept", async (req, res) => {
   try {
     const { campusLocation } = req.body;
+    const checkEx = await Exchange.findById(req.params.id);
+    if (!checkEx) return res.status(404).json({ message: "Exchange not found." });
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== checkEx.toUser) {
+      return res.status(403).json({ success: false, message: "Forbidden. Only the designated recipient can accept/reject this exchange." });
+    }
     const exchange = await Exchange.findByIdAndUpdate(req.params.id, { status: "accepted", campusLocation: campusLocation || "", respondedAt: new Date() }, { new: true });
     if (!exchange) return res.status(404).json({ message: "Exchange not found." });
     await Notification.create({ userName: exchange.fromUser, userEmail: exchange.fromUserEmail, type: "exchange_update", message: `${exchange.toUser} accepted your exchange for "${exchange.bookTitle}". Meet at: ${exchange.campusLocation||"TBD"}. Waiting for Admin approval.` });
@@ -144,6 +169,11 @@ router.put("/exchanges/:id/accept", async (req, res) => {
 // Reject exchange
 router.put("/exchanges/:id/reject", async (req, res) => {
   try {
+    const checkEx = await Exchange.findById(req.params.id);
+    if (!checkEx) return res.status(404).json({ message: "Exchange not found." });
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== checkEx.toUser) {
+      return res.status(403).json({ success: false, message: "Forbidden. Only the designated recipient can accept/reject this exchange." });
+    }
     const exchange = await Exchange.findByIdAndUpdate(req.params.id, { status: "rejected", respondedAt: new Date() }, { new: true });
     if (!exchange) return res.status(404).json({ message: "Exchange not found." });
     await Notification.create({ userName: exchange.fromUser, userEmail: exchange.fromUserEmail, type: "exchange_update", message: `${exchange.toUser} declined your exchange request for "${exchange.bookTitle}".` });
@@ -152,7 +182,7 @@ router.put("/exchanges/:id/reject", async (req, res) => {
 });
 
 // Admin approve exchange
-router.put("/exchanges/:id/approve", async (req, res) => {
+router.put("/exchanges/:id/approve", verifyAdmin, async (req, res) => {
   try {
     const exchange = await Exchange.findByIdAndUpdate(req.params.id, { status: "approved" }, { new: true });
     if (!exchange) return res.status(404).json({ message: "Exchange not found." });
@@ -165,6 +195,11 @@ router.put("/exchanges/:id/approve", async (req, res) => {
 // Complete exchange (Student 1 confirms handover)
 router.put("/exchanges/:id/complete", async (req, res) => {
   try {
+    const checkEx = await Exchange.findById(req.params.id);
+    if (!checkEx) return res.status(404).json({ message: "Exchange not found." });
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== checkEx.fromUser) {
+      return res.status(403).json({ success: false, message: "Forbidden. Only the initiating party can complete this exchange." });
+    }
     const exchange = await Exchange.findByIdAndUpdate(req.params.id, { status: "completed", completedAt: new Date() }, { new: true });
     if (!exchange) return res.status(404).json({ message: "Exchange not found." });
 
@@ -215,7 +250,7 @@ router.put("/exchanges/:id/complete", async (req, res) => {
 // ============ REPORTS (extended fine/export) ============
 
 // Fine overview
-router.get("/reports/fines", async (req, res) => {
+router.get("/reports/fines", verifyAdmin, async (req, res) => {
   try {
     const now = new Date();
     const allTx = await Transaction.find();
@@ -243,7 +278,7 @@ router.get("/reports/fines", async (req, res) => {
 
 // ============ CSV EXPORTS ============
 
-router.get("/export/issues", async (req, res) => {
+router.get("/export/issues", verifyAdmin, async (req, res) => {
   try {
     const txs = await Transaction.find().sort({ createdAt: -1 });
     const rows = [];
@@ -259,7 +294,7 @@ router.get("/export/issues", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/export/fines", async (req, res) => {
+router.get("/export/fines", verifyAdmin, async (req, res) => {
   try {
     const txs = await Transaction.find();
     const rows = [];
@@ -277,7 +312,7 @@ router.get("/export/fines", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/export/inventory", async (req, res) => {
+router.get("/export/inventory", verifyAdmin, async (req, res) => {
   try {
     const books = await Book.find().sort({ title: 1 });
     const rows = [];
@@ -294,7 +329,7 @@ router.get("/export/inventory", async (req, res) => {
 
 // ============ PDF EXPORTS ============
 
-router.get("/export/pdf/issues", async (req, res) => {
+router.get("/export/pdf/issues", verifyAdmin, async (req, res) => {
   try {
     const txs = await Transaction.find().sort({ createdAt: -1 });
     const doc = new PDFDocument({ margin: 30, size: 'A4' });
@@ -318,7 +353,7 @@ router.get("/export/pdf/issues", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/export/pdf/fines", async (req, res) => {
+router.get("/export/pdf/fines", verifyAdmin, async (req, res) => {
   try {
     const txs = await Transaction.find();
     const doc = new PDFDocument({ margin: 30, size: 'A4' });
@@ -344,7 +379,7 @@ router.get("/export/pdf/fines", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/export/pdf/inventory", async (req, res) => {
+router.get("/export/pdf/inventory", verifyAdmin, async (req, res) => {
   try {
     const books = await Book.find().sort({ title: 1 });
     const doc = new PDFDocument({ margin: 30, size: 'A4' });
@@ -410,6 +445,10 @@ router.get("/gamification/leaderboard", async (req, res) => {
 // Get User's Gamification Stats
 router.get("/gamification/user/:email", async (req, res) => {
   try {
+    // Authorization Check: Student can only view their own gamification stats; Admin/Owner can view anyone's.
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.email !== req.params.email) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own gamification stats." });
+    }
     const account = await Account.findOne({ email: req.params.email });
     if (!account) return res.status(404).json({ message: "Account not found." });
     

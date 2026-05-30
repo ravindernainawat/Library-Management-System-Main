@@ -8,7 +8,7 @@ const { logActivity, sendEmail } = require("../utils");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key";
 const { validateRegister, validateLogin } = require("../middleware/validate");
-const { verifyToken } = require("../middleware/auth");
+const { verifyToken, verifyOwner } = require("../middleware/auth");
 const rateLimit = require("express-rate-limit");
 
 const authLimiter = rateLimit({
@@ -52,7 +52,7 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
     );
     
     if (!emailSent) {
-       return res.status(500).json({ success: false, message: "Failed to send OTP email. Make sure SMTP is configured." });
+       console.log(`\n  [DEV] Failed to send email to ${email}. Register OTP: ${otp}\n`);
     }
 
     res.json({ success: true, message: "OTP sent to your email. Please verify to create account." });
@@ -147,7 +147,7 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
     );
     
     if (!emailSent) {
-       return res.status(500).json({ success: false, message: "Failed to send OTP email. Make sure SMTP is configured." });
+       console.log(`\n  [DEV] Failed to send email to ${account.email}. Login OTP: ${otp}\n`);
     }
 
     res.json({ success: true, requiresOtp: true, message: "OTP sent to your email. Please verify to login." });
@@ -209,7 +209,7 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
     );
 
     if (!emailSent) {
-      return res.status(500).json({ success: false, message: "Failed to send OTP email. Make sure SMTP is configured." });
+      console.log(`\n  [DEV] Failed to send email to ${account.email}. Reset OTP: ${otp}\n`);
     }
 
     res.json({ success: true, message: "Reset OTP sent to your email. Please verify to change your password." });
@@ -260,7 +260,7 @@ router.post("/reset-password", authLimiter, async (req, res) => {
 });
 
 // GET all accounts (owner only)
-router.get("/accounts", async (req, res) => {
+router.get("/accounts", verifyToken, verifyOwner, async (req, res) => {
   try {
     const accounts = await Account.find({ role: { $ne: "owner" } }).sort({ createdAt: -1 });
     res.json(accounts.map(a => ({ ...a.toObject(), id: a._id })));
@@ -268,7 +268,7 @@ router.get("/accounts", async (req, res) => {
 });
 
 // GET pending accounts (owner only)
-router.get("/accounts/pending", async (req, res) => {
+router.get("/accounts/pending", verifyToken, verifyOwner, async (req, res) => {
   try {
     const accounts = await Account.find({ status: "pending" }).sort({ createdAt: -1 });
     res.json(accounts.map(a => ({ ...a.toObject(), id: a._id })));
@@ -276,7 +276,7 @@ router.get("/accounts/pending", async (req, res) => {
 });
 
 // APPROVE account (owner only)
-router.put("/accounts/:id/approve", async (req, res) => {
+router.put("/accounts/:id/approve", verifyToken, verifyOwner, async (req, res) => {
   try {
     const { approvedBy } = req.body;
     const account = await Account.findByIdAndUpdate(req.params.id, { status: "active", approvedBy: approvedBy || "Owner", approvedAt: new Date() }, { new: true });
@@ -288,7 +288,7 @@ router.put("/accounts/:id/approve", async (req, res) => {
 });
 
 // REJECT/DELETE pending account
-router.delete("/accounts/:id/reject", async (req, res) => {
+router.delete("/accounts/:id/reject", verifyToken, verifyOwner, async (req, res) => {
   try {
     const account = await Account.findByIdAndDelete(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found." });
@@ -298,7 +298,7 @@ router.delete("/accounts/:id/reject", async (req, res) => {
 });
 
 // BLOCK / UNBLOCK account (owner only)
-router.put("/accounts/:id/block", async (req, res) => {
+router.put("/accounts/:id/block", verifyToken, verifyOwner, async (req, res) => {
   try {
     const { blockedBy, reason } = req.body;
     const account = await Account.findByIdAndUpdate(req.params.id, { status: "blocked", blockedBy: blockedBy || "Owner", blockedReason: reason || "Violation of policy", blockedAt: new Date() }, { new: true });
@@ -309,7 +309,7 @@ router.put("/accounts/:id/block", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.put("/accounts/:id/unblock", async (req, res) => {
+router.put("/accounts/:id/unblock", verifyToken, verifyOwner, async (req, res) => {
   try {
     const account = await Account.findByIdAndUpdate(req.params.id, { status: "active", blockedBy: "", blockedReason: "", blockedAt: null }, { new: true });
     if (!account) return res.status(404).json({ message: "Account not found." });

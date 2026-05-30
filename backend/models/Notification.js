@@ -11,7 +11,8 @@ const notificationSchema = new mongoose.Schema({
       "available", "request_update", "general",
       "exchange_request", "exchange_update",
       "reservation_available",
-      "admin_approval", "account_blocked", "account_approved"
+      "admin_approval", "account_blocked", "account_approved",
+      "account_unblocked"
     ],
     required: true
   },
