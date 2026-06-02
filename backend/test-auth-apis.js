@@ -21,7 +21,7 @@ const http = require("http");
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const jwt = require("jsonwebtoken");
 const bcryptTop = require("bcryptjs");
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key";

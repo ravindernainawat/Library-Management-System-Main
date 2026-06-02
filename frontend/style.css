@@ -2456,6 +2456,74 @@ body.light-mode .orb-2 {
   }
 }
 
+/* ============ PAGINATION CONTROLS ============ */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(0, 23, 50, 0.3);
+  border-radius: 0 0 var(--radius) var(--radius);
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--glass-border);
+  background: rgba(12, 37, 64, 0.5);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: var(--transition-fast);
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: rgba(12, 37, 64, 0.8);
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(203, 0, 13, 0.2);
+  transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pagination-prev::before {
+  content: "← ";
+}
+
+.pagination-next::after {
+  content: " →";
+}
+
+/* Mobile: Stack pagination vertically */
+@media (max-width: 640px) {
+  .pagination-controls {
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .pagination-btn {
+    width: 100%;
+  }
+}
+
 /* end of style.css */
 
 

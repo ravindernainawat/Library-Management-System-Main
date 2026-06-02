@@ -10,6 +10,7 @@ const Account = require("../models/Account");
 const BookCopy = require("../models/BookCopy");
 const { logActivity, calcFine } = require("../utils");
 const { verifyAdmin } = require("../middleware/auth");
+const { parsePaginationParams, buildPaginationResponse, getSkipValue } = require("../middleware/pagination");
 const PDFDocument = require("pdfkit");
 
 // ============ RESERVATIONS (24-hour hold) ============
@@ -56,16 +57,32 @@ router.post("/reservations", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get user's reservations (active only)
+// Get user's reservations (active only, with pagination)
 router.get("/reservations/user/:userName", async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own reservations." });
     }
+    
     // Auto-expire any past-due reservations first
     await expireOldReservations();
-    const reservations = await Reservation.find({ userName: req.params.userName }).sort({ createdAt: -1 }).limit(20);
-    res.json(reservations.map(r => ({ ...r.toObject(), id: r._id })));
+    
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Reservation.countDocuments({ userName: req.params.userName });
+    const reservations = await Reservation.find({ userName: req.params.userName })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      reservations.map(r => ({ ...r, id: r._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -130,22 +147,55 @@ router.post("/exchanges", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get user's exchanges (sent and received)
+// Get user's exchanges (sent and received, with pagination)
 router.get("/exchanges/user/:userName", async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own exchanges." });
     }
-    const exchanges = await Exchange.find({ $or: [{ fromUser: req.params.userName }, { toUser: req.params.userName }] }).sort({ createdAt: -1 });
-    res.json(exchanges.map(e => ({ ...e.toObject(), id: e._id })));
+    
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Exchange.countDocuments({ 
+      $or: [{ fromUser: req.params.userName }, { toUser: req.params.userName }] 
+    });
+    const exchanges = await Exchange.find({ 
+      $or: [{ fromUser: req.params.userName }, { toUser: req.params.userName }] 
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      exchanges.map(e => ({ ...e, id: e._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get ALL exchanges (Admin)
+// Get ALL exchanges (Admin, with pagination)
 router.get("/exchanges", verifyAdmin, async (req, res) => {
   try {
-    const exchanges = await Exchange.find().sort({ createdAt: -1 });
-    res.json(exchanges.map(e => ({ ...e.toObject(), id: e._id })));
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Exchange.countDocuments();
+    const exchanges = await Exchange.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      exchanges.map(e => ({ ...e, id: e._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -431,14 +481,21 @@ router.get("/borrowers", async (req, res) => {
 
 // ============ GAMIFICATION ============
 
-// Get Leaderboard (Top 5 users by points)
+// Get Leaderboard (with pagination)
 router.get("/gamification/leaderboard", async (req, res) => {
   try {
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Account.countDocuments({ role: { $in: ["student", "teacher"] } });
     const topAccounts = await Account.find({ role: { $in: ["student", "teacher"] } })
       .sort({ points: -1 })
-      .limit(5)
-      .select("name points readingStreak profilePicture");
-    res.json(topAccounts);
+      .skip(skip)
+      .limit(limit)
+      .select("name points readingStreak profilePicture")
+      .lean();
+    
+    res.json(buildPaginationResponse(topAccounts, totalRecords, page, limit));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

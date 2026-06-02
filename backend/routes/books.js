@@ -7,6 +7,7 @@ const Review = require("../models/Review");
 const User = require("../models/User");
 const { logActivity } = require("../utils");
 const { verifyAdmin, verifyToken } = require("../middleware/auth");
+const { parsePaginationParams, buildPaginationResponse, getSkipValue } = require("../middleware/pagination");
 let QRCode;
 try { QRCode = require("qrcode"); } catch(e) { QRCode = null; }
 
@@ -39,11 +40,20 @@ router.get("/auto-fetch/:isbn", async (req, res) => {
   }
 });
 
-// GET all books
+// GET all books (with pagination)
 router.get("/", async (req, res) => {
   try {
-    const books = await Book.find().sort({ createdAt: -1 });
-    res.json(books);
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Book.countDocuments();
+    const books = await Book.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(books, totalRecords, page, limit));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -170,11 +180,25 @@ router.delete("/:id", verifyAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET book copies
+// GET book copies (with pagination)
 router.get("/:id/copies", async (req, res) => {
   try {
-    const copies = await BookCopy.find({ bookId: req.params.id }).sort({ copyNumber: 1 });
-    res.json(copies.map(c => ({ ...c.toObject(), id: c._id })));
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await BookCopy.countDocuments({ bookId: req.params.id });
+    const copies = await BookCopy.find({ bookId: req.params.id })
+      .sort({ copyNumber: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      copies.map(c => ({ ...c, id: c._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

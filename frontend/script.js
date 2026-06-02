@@ -45,6 +45,106 @@ function apiDelete(endpoint) {
   return fetch(API_BASE + endpoint, { method: "DELETE", headers: getAuthHeaders() }).then(function (r) { return r.json(); });
 }
 
+// ============ PAGINATION STATE ============
+var paginationState = {};
+
+function initPaginationState(listId, endpoint) {
+  paginationState[listId] = {
+    endpoint: endpoint,
+    page: 1,
+    limit: 20,
+    totalRecords: 0,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+    data: []
+  };
+}
+
+function fetchPaginatedData(listId, page, limit, filters) {
+  var state = paginationState[listId];
+  if (!state) return Promise.reject("Pagination state not initialized for " + listId);
+  
+  page = page || state.page;
+  limit = limit || state.limit;
+  
+  var endpoint = state.endpoint + "?page=" + page + "&limit=" + limit;
+  if (filters) {
+    for (var key in filters) {
+      if (filters[key]) endpoint += "&" + key + "=" + encodeURIComponent(filters[key]);
+    }
+  }
+  
+  return apiGet(endpoint).then(function(response) {
+    if (response.success !== false && response.pagination) {
+      state.page = response.pagination.page;
+      state.limit = response.pagination.limit;
+      state.totalRecords = response.pagination.totalRecords;
+      state.totalPages = response.pagination.totalPages;
+      state.hasNextPage = response.pagination.hasNextPage;
+      state.hasPrevPage = response.pagination.hasPrevPage;
+      state.data = response.data || [];
+      return state;
+    } else if (Array.isArray(response)) {
+      state.data = response;
+      state.totalRecords = response.length;
+      return state;
+    }
+    return state;
+  }).catch(function(err) {
+    console.error("Pagination fetch error:", err);
+    return state;
+  });
+}
+
+function renderPaginationControls(listId, containerId) {
+  var state = paginationState[listId];
+  if (!state) return;
+  
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  
+  if (state.totalRecords === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  var prevBtn = '<button class="pagination-btn pagination-prev" ' + 
+    (state.hasPrevPage ? 'onclick="goToPreviousPage(\'' + listId + '\')"' : 'disabled') + 
+    '>← Previous</button>';
+  
+  var pageInfo = '<span class="pagination-info">Page ' + state.page + ' of ' + state.totalPages + 
+    ' (' + state.totalRecords + ' total)</span>';
+  
+  var nextBtn = '<button class="pagination-btn pagination-next" ' + 
+    (state.hasNextPage ? 'onclick="goToNextPage(\'' + listId + '\')"' : 'disabled') + 
+    '>Next →</button>';
+  
+  container.innerHTML = '<div class="pagination-controls">' + prevBtn + pageInfo + nextBtn + '</div>';
+}
+
+function goToNextPage(listId) {
+  var state = paginationState[listId];
+  if (state && state.hasNextPage) {
+    fetchPaginatedData(listId, state.page + 1).then(function() {
+      updateTableDisplay(listId);
+    });
+  }
+}
+
+function goToPreviousPage(listId) {
+  var state = paginationState[listId];
+  if (state && state.hasPrevPage) {
+    fetchPaginatedData(listId, state.page - 1).then(function() {
+      updateTableDisplay(listId);
+    });
+  }
+}
+
+function updateTableDisplay(listId) {
+  renderPaginationControls(listId, listId + "-pagination");
+}
+
 // ============ AUTH ============
 function getCurrentUser() { var d = localStorage.getItem("bs_currentUser"); return d ? JSON.parse(d) : null; }
 function isAdmin() { var u = getCurrentUser(); return u && (u.role === "admin" || u.role === "owner"); }
@@ -1102,13 +1202,23 @@ function renderFineReport() {
 
 function renderActivityLogs() {
   if (!isAdmin()) return;
-  apiGet("/activity").then(function (logs) {
+  if (!paginationState["activity-logs"]) initPaginationState("activity-logs", "/activity");
+  
+  fetchPaginatedData("activity-logs", 1).then(function(state) {
     var tb = document.getElementById("activity-table-body");
     if (!tb) return;
-    if (logs.length === 0) { tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>No activity recorded yet.</p></td></tr>'; return; }
-    tb.innerHTML = logs.map(function (log) {
+    
+    if (state.data.length === 0) { 
+      tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>No activity recorded yet.</p></td></tr>';
+      renderPaginationControls("activity-logs", "activity-table-pagination");
+      return;
+    }
+    
+    tb.innerHTML = state.data.map(function (log) {
       return "<tr><td style='color:var(--text-muted)'>" + formatDateTime(log.createdAt) + "</td><td><strong>" + log.action + "</strong></td><td>" + log.performedBy + "</td><td style='color:var(--text-primary)'>" + log.details + "</td></tr>";
     }).join("");
+    
+    renderPaginationControls("activity-logs", "activity-table-pagination");
   });
 }
 
@@ -1234,9 +1344,21 @@ function renderUsers() {
   }
   
   apiGet("/users").then(function (users) {
+    if (!paginationState["users"]) initPaginationState("users", "/users");
+    
     var tb = document.getElementById("users-table-body");
-    if (users.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No users.</p></td></tr>'; return; }
-    tb.innerHTML = users.map(function (u, i) {
+    
+    // Handle response: could be paginated or legacy format
+    var userData = users.data || users;
+    var paginationInfo = users.pagination;
+    
+    if (Array.isArray(userData) && userData.length === 0) { 
+      tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No users.</p></td></tr>'; 
+      renderPaginationControls("users", "users-table-pagination");
+      return; 
+    }
+    
+    tb.innerHTML = userData.map(function (u, i) {
       var issuedBadge = u.issuedCount > 0 ? '<span class="badge badge-warning">' + u.issuedCount + " book" + (u.issuedCount > 1 ? "s" : "") + "</span>" : '<span style="color:var(--text-muted)">None</span>';
       var statusBadge = u.status === "active" ? '<span class="badge badge-success">Active</span>' : u.status === "blocked" ? '<span class="badge badge-blocked">Blocked</span>' : '<span class="badge badge-warning">Pending</span>';
       if (u.blockedReason) statusBadge += ' <small style="color:var(--text-muted)">(' + u.blockedReason + ')</small>';
@@ -1256,6 +1378,18 @@ function renderUsers() {
       
       return '<tr><td style="color:var(--text-muted);font-family:monospace">#' + (i + 1) + '</td><td style="color:var(--text-primary);font-weight:500">' + u.name + "</td><td>" + u.contact + "</td><td>" + issuedBadge + "</td><td>" + statusBadge + '</td><td class="actions-cell">' + actions + "</td></tr>";
     }).join("");
+    
+    // Update pagination state if paginated response
+    if (paginationInfo) {
+      paginationState["users"].page = paginationInfo.page;
+      paginationState["users"].limit = paginationInfo.limit;
+      paginationState["users"].totalRecords = paginationInfo.totalRecords;
+      paginationState["users"].totalPages = paginationInfo.totalPages;
+      paginationState["users"].hasNextPage = paginationInfo.hasNextPage;
+      paginationState["users"].hasPrevPage = paginationInfo.hasPrevPage;
+    }
+    
+    renderPaginationControls("users", "users-table-pagination");
   });
 }
 function deleteUser(id) { if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return; apiDelete("/users/" + id).then(function (d) { if (d.success) { renderUsers(); showToast("Deleted.", "info"); } else showToast(d.message, "error"); }); }
@@ -1324,10 +1458,20 @@ function returnBook(id) {
 }
 function renderTransactions() {
   var user = getCurrentUser(), admin = isAdmin();
-  apiGet("/transactions").then(function (txs) {
-    if (user && user.role === "student") txs = txs.filter(function (t) { return t.userName === user.name; });
+  var endpoint = admin ? "/transactions" : "/transactions/history/" + (user ? user.name : "");
+  
+  if (!paginationState["transactions"]) initPaginationState("transactions", endpoint);
+  
+  apiGet(endpoint).then(function (response) {
     var tb = document.getElementById("transactions-table-body");
-    if (txs.length === 0) { tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No transactions.</p></td></tr>'; return; }
+    var txs = response.data || response;
+    
+    if (!Array.isArray(txs) || txs.length === 0) { 
+      tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No transactions.</p></td></tr>';
+      renderPaginationControls("transactions", "transactions-table-pagination");
+      return;
+    }
+    
     tb.innerHTML = txs.map(function (t) {
       var f = calculateFine(t);
       var status, action;
@@ -1340,9 +1484,21 @@ function renderTransactions() {
         status = '<span class="badge badge-success">Returned</span>'; 
         action = admin ? "--" : (f > 0 && !t.finePaid ? '<button class="btn btn-primary btn-sm" onclick="payFineOnline(\'' + (t._id || t.id) + '\', ' + f + ')">Pay Fine</button>' : "--"); 
       }
-      var fine = f > 0 ? '<span style="color:var(--danger);font-weight:700">\u20B9' + f + "</span>" : '<span style="color:var(--text-muted)">\u20B90</span>';
+      var fine = f > 0 ? '<span style="color:var(--danger);font-weight:700">₹' + f + "</span>" : '<span style="color:var(--text-muted)">₹0</span>';
       return '<tr><td style="color:var(--text-primary);font-weight:500">' + (t.bookTitle || "Deleted") + "</td><td>" + (t.userName || "?") + "</td><td>" + formatDate(t.issueDate) + "</td><td>" + formatDate(t.dueDate) + "</td><td>" + status + "</td><td>" + fine + "</td><td>" + action + "</td></tr>";
     }).join("");
+    
+    // Update pagination state if paginated response
+    if (response.pagination) {
+      paginationState["transactions"].page = response.pagination.page;
+      paginationState["transactions"].limit = response.pagination.limit;
+      paginationState["transactions"].totalRecords = response.pagination.totalRecords;
+      paginationState["transactions"].totalPages = response.pagination.totalPages;
+      paginationState["transactions"].hasNextPage = response.pagination.hasNextPage;
+      paginationState["transactions"].hasPrevPage = response.pagination.hasPrevPage;
+    }
+    
+    renderPaginationControls("transactions", "transactions-table-pagination");
   });
 }
 
@@ -1734,10 +1890,22 @@ function saveShelfLocation(copyId) {
 // ============ RESERVATIONS ============
 function renderReservations() {
   var user = getCurrentUser();
-  apiGet("/reservations/user/" + encodeURIComponent(user.name)).then(function(reservations) {
+  var endpoint = "/features/reservations/user/" + encodeURIComponent(user.name);
+  
+  if (!paginationState["reservations"]) initPaginationState("reservations", endpoint);
+  
+  apiGet(endpoint).then(function(response) {
     var tb = document.getElementById("reservations-table-body");
     if (!tb) return;
-    if (!Array.isArray(reservations) || !reservations.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>'; return; }
+    
+    var reservations = response.data || response;
+    
+    if (!Array.isArray(reservations) || !reservations.length) { 
+      tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>';
+      renderPaginationControls("reservations", "reservations-table-pagination");
+      return;
+    }
+    
     tb.innerHTML = reservations.map(function(r) {
       var statusBadge, cancelBtn = "--";
       if (r.status === "waiting") {
@@ -1765,6 +1933,18 @@ function renderReservations() {
       var expiryCol = r.expiresAt ? formatDateTime(r.expiresAt) : "--";
       return '<tr><td style="color:var(--text-primary);font-weight:500">' + r.bookTitle + '</td><td>' + formatDate(r.createdAt) + '</td><td>' + expiryCol + '</td><td>' + statusBadge + '</td><td>' + cancelBtn + '</td></tr>';
     }).join("");
+    
+    // Update pagination state if paginated response
+    if (response.pagination) {
+      paginationState["reservations"].page = response.pagination.page;
+      paginationState["reservations"].limit = response.pagination.limit;
+      paginationState["reservations"].totalRecords = response.pagination.totalRecords;
+      paginationState["reservations"].totalPages = response.pagination.totalPages;
+      paginationState["reservations"].hasNextPage = response.pagination.hasNextPage;
+      paginationState["reservations"].hasPrevPage = response.pagination.hasPrevPage;
+    }
+    
+    renderPaginationControls("reservations", "reservations-table-pagination");
   });
 }
 
@@ -1777,10 +1957,21 @@ function cancelReservation(id) {
 // ============ BOOK EXCHANGE ============
 function renderExchanges() {
   var user = getCurrentUser();
-  apiGet("/exchanges/user/" + encodeURIComponent(user.name)).then(function(exchanges) {
+  var endpoint = "/features/exchanges/user/" + encodeURIComponent(user.name);
+  
+  if (!paginationState["exchanges"]) initPaginationState("exchanges", endpoint);
+  
+  apiGet(endpoint).then(function(response) {
     var tb = document.getElementById("exchange-table-body");
     if (!tb) return;
-    if (!Array.isArray(exchanges) || !exchanges.length) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges yet.</p></td></tr>'; return; }
+    
+    var exchanges = response.data || response;
+    
+    if (!Array.isArray(exchanges) || !exchanges.length) { 
+      tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges yet.</p></td></tr>';
+      return;
+    }
+    
     tb.innerHTML = exchanges.map(function(e) {
       var statusBadge = '<span class="badge badge-' + e.status + '">' + e.status + '</span>';
       
@@ -1797,6 +1988,16 @@ function renderExchanges() {
       
       return '<tr><td>' + e.bookTitle + '</td><td>' + e.fromUser + '</td><td>' + e.toUser + '</td><td>' + (e.campusLocation||"--") + '</td><td>' + statusBadge + '</td><td>' + actions + '</td></tr>';
     }).join("");
+    
+    // Update pagination state if paginated response
+    if (response.pagination) {
+      paginationState["exchanges"].page = response.pagination.page;
+      paginationState["exchanges"].limit = response.pagination.limit;
+      paginationState["exchanges"].totalRecords = response.pagination.totalRecords;
+      paginationState["exchanges"].totalPages = response.pagination.totalPages;
+      paginationState["exchanges"].hasNextPage = response.pagination.hasNextPage;
+      paginationState["exchanges"].hasPrevPage = response.pagination.hasPrevPage;
+    }
   });
 }
 

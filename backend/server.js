@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const path = require("path");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const mongoSanitize = require("express-mongo-sanitize");
 const rateLimit = require("express-rate-limit");
 const slowDown = require("express-slow-down");
@@ -29,6 +29,7 @@ const BookCopy   = require("./models/BookCopy");
 const Reservation= require("./models/Reservation");
 const Exchange   = require("./models/Exchange");
 const { logActivity, calcFine } = require("./utils");
+const { parsePaginationParams, buildPaginationResponse, getSkipValue } = require("./middleware/pagination");
 
 // Routes
 const authRoutes         = require("./routes/auth");
@@ -319,13 +320,22 @@ app.use("/api/chat",         chatRoutes);
 // ============ USERS ============
 app.get("/api/users", verifyAdmin, async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await User.countDocuments();
+    const users = await User.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
     const result = [];
     for (const u of users) {
       const issuedCount = await Transaction.countDocuments({ userId: u._id, status: "issued" });
-      const account = await Account.findOne({ email: u.contact });
+      const account = await Account.findOne({ email: u.contact }).lean();
       result.push({ 
-        ...u.toObject(), 
+        ...u, 
         id: u._id, 
         issuedCount, 
         status: account ? account.status : "active", 
@@ -333,7 +343,7 @@ app.get("/api/users", verifyAdmin, async (req, res) => {
         accountId: account ? account._id : null
       });
     }
-    res.json(result);
+    res.json(buildPaginationResponse(result, totalRecords, page, limit));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -510,7 +520,23 @@ app.get("/api/notifications/:userEmail", async (req, res) => {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.email !== req.params.userEmail) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own notifications." });
     }
-    res.json((await Notification.find({ userEmail: req.params.userEmail }).sort({ createdAt: -1 }).limit(30)).map(n => ({ ...n.toObject(), id: n._id })));
+    
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Notification.countDocuments({ userEmail: req.params.userEmail });
+    const notifications = await Notification.find({ userEmail: req.params.userEmail })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      notifications.map(n => ({ ...n, id: n._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch(err) { res.status(500).json({ message: err.message }); }
 });
 app.get("/api/notifications/user/:userName", async (req, res) => {
@@ -519,7 +545,23 @@ app.get("/api/notifications/user/:userName", async (req, res) => {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own notifications." });
     }
-    res.json((await Notification.find({ userName: req.params.userName }).sort({ createdAt: -1 }).limit(30)).map(n => ({ ...n.toObject(), id: n._id })));
+    
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Notification.countDocuments({ userName: req.params.userName });
+    const notifications = await Notification.find({ userName: req.params.userName })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(
+      notifications.map(n => ({ ...n, id: n._id })), 
+      totalRecords, 
+      page, 
+      limit
+    ));
   } catch(err) { res.status(500).json({ message: err.message }); }
 });
 app.put("/api/notifications/:id/read", async (req, res) => {
@@ -570,7 +612,19 @@ app.get("/api/recommendations/:userName", async (req, res) => {
 
 // ============ ACTIVITY LOGS ============
 app.get("/api/activity", verifyAdmin, async (req, res) => {
-  try { res.json(await ActivityLog.find().sort({ createdAt: -1 }).limit(50)); } catch(err) { res.status(500).json({ message: err.message }); }
+  try { 
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await ActivityLog.countDocuments();
+    const activityLogs = await ActivityLog.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
+    res.json(buildPaginationResponse(activityLogs, totalRecords, page, limit));
+  } catch(err) { res.status(500).json({ message: err.message }); }
 });
 
 // ============ STATS / REPORTS ============

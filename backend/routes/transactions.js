@@ -10,39 +10,71 @@ const Reservation = require("../models/Reservation");
 const Wishlist = require("../models/Wishlist");
 const { logActivity, notifyReservationQueue, calcFine } = require("../utils");
 const { verifyAdmin } = require("../middleware/auth");
+const { parsePaginationParams, buildPaginationResponse, getSkipValue } = require("../middleware/pagination");
 // Issue limits by role
 const ISSUE_LIMITS = { student: 3, teacher: 5, admin: 10, owner: 10 };
 const DUE_DAYS    = { student: 14, teacher: 30, admin: 30, owner: 30 };
 
-// GET all transactions
+// GET all transactions (with pagination)
 router.get("/", verifyAdmin, async (req, res) => {
   try {
-    const txs = await Transaction.find().sort({ createdAt: -1 });
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Transaction.countDocuments();
+    const txs = await Transaction.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
     const enriched = [];
     for (const t of txs) {
-      const book = await Book.findById(t.bookId);
+      const book = await Book.findById(t.bookId).lean();
       const fine = calcFine(t);
-      enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
+      enriched.push({ 
+        ...t, 
+        id: t._id, 
+        bookTitle: book ? book.title : "Deleted", 
+        fine 
+      });
     }
-    res.json(enriched);
+    
+    res.json(buildPaginationResponse(enriched, totalRecords, page, limit));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET history for a user
+// GET history for a user (with pagination)
 router.get("/history/:userName", async (req, res) => {
   try {
     // Authorization Check: Student can only view their own history; Admin/Owner can view anyone's.
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own history." });
     }
-    const txs = await Transaction.find({ userName: req.params.userName }).sort({ createdAt: -1 });
+    
+    const { page, limit } = parsePaginationParams(req);
+    const skip = getSkipValue(page, limit);
+    
+    const totalRecords = await Transaction.countDocuments({ userName: req.params.userName });
+    const txs = await Transaction.find({ userName: req.params.userName })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+    
     const enriched = [];
     for (const t of txs) {
-      const book = await Book.findById(t.bookId);
+      const book = await Book.findById(t.bookId).lean();
       const fine = calcFine(t);
-      enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
+      enriched.push({ 
+        ...t, 
+        id: t._id, 
+        bookTitle: book ? book.title : "Deleted", 
+        fine 
+      });
     }
-    res.json(enriched);
+    
+    res.json(buildPaginationResponse(enriched, totalRecords, page, limit));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
