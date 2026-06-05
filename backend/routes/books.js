@@ -240,7 +240,7 @@ router.get("/:id/borrowers", verifyToken, async (req, res) => {
 });
 
 // UPDATE copy (shelf location, condition)
-router.put("/copies/:copyId", verifyAdmin, async (req, res) => {
+router.put("/copies/:copyId", async (req, res) => {
   try {
     const { aisle, rack, position, condition } = req.body;
     const update = {};
@@ -258,7 +258,7 @@ router.put("/copies/:copyId", verifyAdmin, async (req, res) => {
 });
 
 // ADD damage to copy
-router.post("/copies/:copyId/damage", verifyAdmin, async (req, res) => {
+router.post("/copies/:copyId/damage", async (req, res) => {
   try {
     const { description, reportedBy } = req.body;
     const copy = await BookCopy.findByIdAndUpdate(req.params.copyId,
