@@ -372,7 +372,17 @@
       }
       
       fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' }, body: JSON.stringify(body) })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+          // Guard: If the server returned HTML instead of JSON, surface a clear error
+          var ct = (r.headers.get('content-type') || '');
+          if (!r.ok && !ct.includes('application/json')) {
+            throw new Error('Server returned ' + r.status + ' (non-JSON). The API route "' + endpoint + '" may not exist or the server encountered an error.');
+          }
+          if (ct.includes('text/html')) {
+            throw new Error('Server returned an HTML page instead of JSON for "' + endpoint + '". Check backend API routing and CORS configuration.');
+          }
+          return r.json();
+        })
         .then(function(data) {
           document.getElementById('authSpinner').style.display = 'none';
           document.getElementById('authBtnText').textContent = isSignUp ? (isOtpStep ? 'Verify OTP' : 'Sign Up') : (isOtpStep ? 'Verify OTP' : 'Sign In');
@@ -434,7 +444,7 @@
           document.getElementById('authSpinner').style.display = 'none';
           document.getElementById('authBtnText').textContent = isForgotPassword ? (isOtpStep ? 'Reset Password' : 'Send Reset OTP') : (isSignUp ? (isOtpStep ? 'Verify OTP' : 'Sign Up') : (isOtpStep ? 'Verify OTP' : 'Sign In'));
           document.getElementById('authBtn').disabled = false;
-          errorEl.textContent = 'Error: ' + err.message + ' (Check LocalTunnel warning page)';
+          errorEl.textContent = 'Error: ' + err.message;
         });
     }
   </script>

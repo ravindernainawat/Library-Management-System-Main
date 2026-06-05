@@ -30,19 +30,29 @@ function getAuthHeaders(extraHeaders) {
   headers["Bypass-Tunnel-Reminder"] = "true"; // Prevents localtunnel warning page from breaking API calls
   return headers;
 }
+function handleApiResponse(r, endpoint) {
+  var ct = (r.headers.get("content-type") || "");
+  if (!r.ok && !ct.includes("application/json")) {
+    throw new Error("Server returned " + r.status + " (non-JSON). The API route \"" + endpoint + "\" may not exist or the server encountered an error.");
+  }
+  if (ct.includes("text/html")) {
+    throw new Error("Server returned an HTML page instead of JSON for \"" + endpoint + "\". Check backend API routing and CORS configuration.");
+  }
+  return r.json();
+}
 function apiGet(endpoint) {
-  return fetch(API_BASE + endpoint, { headers: getAuthHeaders() }).then(function (r) { return r.json(); });
+  return fetch(API_BASE + endpoint, { headers: getAuthHeaders() }).then(function (r) { return handleApiResponse(r, endpoint); });
 }
 function apiPost(endpoint, body) {
   var headers = getAuthHeaders({ "Content-Type": "application/json" });
-  return fetch(API_BASE + endpoint, { method: "POST", headers: headers, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+  return fetch(API_BASE + endpoint, { method: "POST", headers: headers, body: JSON.stringify(body) }).then(function (r) { return handleApiResponse(r, endpoint); });
 }
 function apiPut(endpoint, body) {
   var headers = getAuthHeaders({ "Content-Type": "application/json" });
-  return fetch(API_BASE + endpoint, { method: "PUT", headers: headers, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json(); });
+  return fetch(API_BASE + endpoint, { method: "PUT", headers: headers, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return handleApiResponse(r, endpoint); });
 }
 function apiDelete(endpoint) {
-  return fetch(API_BASE + endpoint, { method: "DELETE", headers: getAuthHeaders() }).then(function (r) { return r.json(); });
+  return fetch(API_BASE + endpoint, { method: "DELETE", headers: getAuthHeaders() }).then(function (r) { return handleApiResponse(r, endpoint); });
 }
 
 // ============ PAGINATION ============
@@ -1552,7 +1562,7 @@ function renderUsers() {
   
   if (isOwner()) {
     document.getElementById("pending-approvals-panel").style.display = "block";
-    fetch(API_BASE + "/auth/accounts/pending").then(function(r) { return r.json(); }).then(function(accounts) {
+    apiGet("/auth/accounts/pending").then(function(accounts) {
       var tb = document.getElementById("pending-accounts-body");
       if (!tb) return;
       if (!accounts.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No pending approvals.</p></td></tr>'; }
@@ -1605,29 +1615,25 @@ function renderUsers() {
 function deleteUser(id) { if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return; apiDelete("/users/" + id).then(function (d) { if (d.success) { renderUsers(); showToast("Deleted.", "info"); } else showToast(d.message, "error"); }); }
 
 function approveAccount(id) {
-  fetch(API_BASE + "/auth/accounts/" + id + "/approve", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approvedBy: getCurrentUser().name }) })
-    .then(function(r) { return r.json(); })
+  apiPut("/auth/accounts/" + id + "/approve", { approvedBy: getCurrentUser().name })
     .then(function(d) { if (d.success) { showToast(d.name + " approved!", "success"); renderUsers(); } else showToast(d.message, "error"); });
 }
 
 function rejectAccount(id) {
   if (!confirm("Reject this account?")) return;
-  fetch(API_BASE + "/auth/accounts/" + id + "/reject", { method: "DELETE" })
-    .then(function(r) { return r.json(); })
+  apiDelete("/auth/accounts/" + id + "/reject")
     .then(function(d) { if (d.success) { showToast("Account rejected", "info"); renderUsers(); } });
 }
 
 function blockAccount(id, name) {
   var reason = prompt("Block reason for " + name + ":");
   if (!reason) return;
-  fetch(API_BASE + "/auth/accounts/" + id + "/block", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: reason, blockedBy: getCurrentUser().name }) })
-    .then(function(r) { return r.json(); })
+  apiPut("/auth/accounts/" + id + "/block", { reason: reason, blockedBy: getCurrentUser().name })
     .then(function(d) { if (d.success) { showToast(name + " blocked", "info"); renderUsers(); } else showToast(d.message, "error"); });
 }
 
 function unblockAccount(id) {
-  fetch(API_BASE + "/auth/accounts/" + id + "/unblock", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unblockedBy: getCurrentUser().name }) })
-    .then(function(r) { return r.json(); })
+  apiPut("/auth/accounts/" + id + "/unblock", { unblockedBy: getCurrentUser().name })
     .then(function(d) { if (d.success) { showToast("Account unblocked", "success"); renderUsers(); } });
 }
 
@@ -1889,9 +1895,8 @@ function checkOverdueAlerts(user) {
 // ============ CSV EXPORT ============
 function exportCSV(type, filename) {
   showToast("Preparing export...", "info");
-  var token = localStorage.getItem("bs_token");
   fetch(API_BASE + "/export/" + type, {
-    headers: { "Authorization": "Bearer " + token }
+    headers: getAuthHeaders()
   })
   .then(function(res) {
     if (!res.ok) throw new Error("Export failed");
@@ -1915,9 +1920,8 @@ function exportCSV(type, filename) {
 
 function exportPDF(type, filename) {
   showToast("Preparing PDF export...", "info");
-  var token = localStorage.getItem("bs_token");
   fetch(API_BASE + "/export/pdf/" + type, {
-    headers: { "Authorization": "Bearer " + token }
+    headers: getAuthHeaders()
   })
   .then(function(res) {
     if (!res.ok) throw new Error("PDF Export failed");
@@ -2137,8 +2141,7 @@ function renderReservations() {
 }
 
 function cancelReservation(id) {
-  fetch(API_BASE + "/reservations/" + id, { method: "DELETE" })
-    .then(function(r) { return r.json(); })
+  apiDelete("/reservations/" + id)
     .then(function(d) { if (d.success) { showToast("Reservation cancelled", "info"); renderReservations(); } });
 }
 
@@ -2228,21 +2231,18 @@ function sendExchangeRequest() {
 
 function acceptExchange(id) {
   var location = prompt("Confirm campus meeting location:");
-  fetch(API_BASE + "/exchanges/" + id + "/accept", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campusLocation: location||"TBD" }) })
-    .then(function(r) { return r.json(); })
+  apiPut("/exchanges/" + id + "/accept", { campusLocation: location||"TBD" })
     .then(function(d) { if (d.success) { showToast("Exchange accepted!", "success"); renderExchanges(); } });
 }
 
 function rejectExchange(id) {
-  fetch(API_BASE + "/exchanges/" + id + "/reject", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
-    .then(function(r) { return r.json(); })
+  apiPut("/exchanges/" + id + "/reject", {})
     .then(function(d) { if (d.success) { showToast("Exchange rejected", "info"); renderExchanges(); } });
 }
 
 function completeExchange(id) {
   if(!confirm("Did you physically receive the book? Click OK to confirm and transfer the book to your account.")) return;
-  fetch(API_BASE + "/exchanges/" + id + "/complete", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
-    .then(function(r) { return r.json(); })
+  apiPut("/exchanges/" + id + "/complete", {})
     .then(function(d) { 
       if (d.success) { 
         showToast("Book successfully transferred to you!", "success"); 
@@ -2260,8 +2260,7 @@ function openPaymentModal(txId, totalFine) {
   if (!method) return;
   method = method.toLowerCase().trim();
   if (!["cash","upi","online"].includes(method)) { showToast("Invalid method. Use: cash, upi, or online", "error"); return; }
-  fetch(API_BASE + "/transactions/" + txId + "/pay", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentMethod: method, paidBy: getCurrentUser().name }) })
-    .then(function(r) { return r.json(); })
+  apiPut("/transactions/" + txId + "/pay", { paymentMethod: method, paidBy: getCurrentUser().name })
     .then(function(d) {
       if (d.success) { showToast("₹" + d.totalFine + " paid via " + d.paymentMethod + "!", "success"); renderFineReport(); renderTransactions(); }
       else showToast(d.message, "error");
@@ -2376,15 +2375,7 @@ async function sendChatMessage() {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
   
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + localStorage.getItem('bs_token')
-      },
-      body: JSON.stringify({ message })
-    });
-    const data = await res.json();
+    const data = await apiPost("/chat", { message });
     
     messagesContainer.removeChild(typingDiv);
     
