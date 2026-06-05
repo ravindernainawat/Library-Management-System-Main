@@ -417,6 +417,40 @@
       </div>
     </div>
 
+    <!-- SHELF MANAGEMENT -->
+    <div class="content-section admin-only" id="section-shelf">
+      <div class="section-header">
+        <h2>Shelf Locations</h2>
+        <div class="search-bar">
+          <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="shelf-book-search" placeholder="Search book to manage shelf..." oninput="renderShelfManagement()">
+        </div>
+      </div>
+      <div class="glass-panel">
+        <h3>Select a Book</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Title</th><th>Author</th><th>Total Copies</th><th>Actions</th></tr></thead>
+            <tbody id="shelf-books-body">
+              <tr><td colspan="4" class="empty-state"><p>Loading books...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="shelf-books-pagination"></div>
+      </div>
+      <div class="glass-panel" id="shelf-copies-panel" style="display:none;">
+        <h3 id="shelf-copies-title">Manage Copies</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Copy #</th><th>Status</th><th>Condition</th><th>Aisle</th><th>Rack</th><th>Position</th><th>Actions</th></tr></thead>
+            <tbody id="shelf-copies-body">
+              <tr><td colspan="7" class="empty-state"><p>Loading copies...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- USER & ACCOUNT MANAGEMENT -->
     <div class="content-section admin-only" id="section-users">
       <div class="section-header"><h2>Users & Accounts</h2></div>
@@ -841,22 +875,6 @@
       </div>
     </div>
 
-
-    <!-- SHELF MANAGEMENT (Admin only) -->
-    <div class="content-section admin-only" id="section-shelf">
-      <div class="section-header"><h2>📍 Shelf Location Management</h2></div>
-      <div class="glass-panel">
-        <h3>Assign Shelf Locations to Book Copies</h3>
-        <div class="form-grid" style="margin-bottom:16px;">
-          <div class="form-group"><label>Select Book</label><select id="shelf-book-select" onchange="loadCopiesForShelf()"><option value="">-- Choose Book --</option></select></div>
-        </div>
-        <div id="shelf-copies-list"></div>
-      </div>
-      <div class="glass-panel">
-        <h3>📊 Book Copy Overview</h3>
-        <div id="shelf-overview-grid" class="stats-grid"></div>
-      </div>
-    </div>
 
 
 

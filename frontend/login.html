@@ -398,6 +398,17 @@
               document.getElementById('forgotPasswordLink').style.display = 'none';
               document.getElementById('tagline').textContent = isForgotPassword ? 'Enter OTP and new password' : 'Enter the OTP sent to your email';
               successEl.textContent = data.message;
+
+              // DEV fallback: auto-fill OTP if email failed and server returned it
+              if (data.devOtp) {
+                const otpInput = document.getElementById('otp');
+                if (otpInput) {
+                  otpInput.value = data.devOtp;
+                  otpInput.style.border = '2px solid #f59e0b';
+                }
+                successEl.textContent = '⚠️ [DEV] Email unavailable — OTP auto-filled: ' + data.devOtp;
+                successEl.style.color = '#f59e0b';
+              }
               return;
             }
             if (data.pending) { 

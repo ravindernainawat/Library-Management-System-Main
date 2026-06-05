@@ -32,3 +32,17 @@ build/
 # Temporary files
 .temp/
 tmp/
+
+# Debug / test / reset scripts (may contain secrets or bypass security)
+**/test-*.js
+**/debug-*.js
+**/reset-*.js
+**/query-*.js
+
+# Local database storage
+backend/data/
+
+# Secrets / credentials
+*.pem
+*.key
+*.cert

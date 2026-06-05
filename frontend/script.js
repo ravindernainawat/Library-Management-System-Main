@@ -2088,52 +2088,7 @@ function handleQRInputKeyPress(e) {
   }
 }
 
-// ============ SHELF MANAGEMENT ============
-function renderShelfManagement() {
-  if (!isAdmin()) return;
-  apiGet("/books").then(function(books) {
-    var sel = document.getElementById("shelf-book-select");
-    if (sel) sel.innerHTML = '<option value="">-- Choose Book --</option>' + books.map(function(b) { return '<option value="' + b._id + '">' + b.title + '</option>'; }).join("");
-    // Overview grid
-    var grid = document.getElementById("shelf-overview-grid");
-    if (grid) {
-      grid.innerHTML = books.slice(0, 8).map(function(b) {
-        return '<div class="stat-card"><div class="stat-icon-wrap books-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div><div class="stat-value" style="font-size:1.1rem;">' + b.title.substring(0,20) + (b.title.length > 20 ? "..." : "") + '</div><div class="stat-label">' + b.availableCopies + ' / ' + b.totalCopies + ' available</div></div>';
-      }).join("");
-    }
-  });
-}
 
-function loadCopiesForShelf() {
-  var bookId = document.getElementById("shelf-book-select").value;
-  var container = document.getElementById("shelf-copies-list");
-  if (!bookId) { container.innerHTML = ""; return; }
-  apiGet("/books/" + bookId + "/copies").then(function(copies) {
-    if (!copies.length) { container.innerHTML = '<p style="color:var(--text-muted)">No copies found. Add the book to generate copies.</p>'; return; }
-    container.innerHTML = copies.map(function(c) {
-      return '<div class="copy-card">' +
-        '<div class="copy-number">#' + c.copyNumber + '</div>' +
-        '<div>' +
-          '<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;">Status: <span class="badge badge-' + (c.status === "available" ? "success" : "warning") + '">' + c.status + '</span> | Condition: ' + c.condition + '</div>' +
-          '<div class="copy-location">' +
-            '<label style="font-size:0.75rem;color:var(--text-muted)">Aisle</label><input type="text" id="aisle-' + c.id + '" value="' + (c.shelfLocation.aisle||"") + '" placeholder="A1">' +
-            '<label style="font-size:0.75rem;color:var(--text-muted)">Rack</label><input type="text" id="rack-' + c.id + '" value="' + (c.shelfLocation.rack||"") + '" placeholder="R2">' +
-            '<label style="font-size:0.75rem;color:var(--text-muted)">Position</label><input type="text" id="pos-' + c.id + '" value="' + (c.shelfLocation.position||"") + '" placeholder="P3">' +
-          '</div>' +
-        '</div>' +
-        '<button class="btn btn-primary btn-sm" onclick="saveShelfLocation(\'' + c.id + '\')">Save</button>' +
-      '</div>';
-    }).join("");
-  });
-}
-
-function saveShelfLocation(copyId) {
-  var aisle = document.getElementById("aisle-" + copyId).value;
-  var rack = document.getElementById("rack-" + copyId).value;
-  var position = document.getElementById("pos-" + copyId).value;
-  apiPut("/books/copies/" + copyId, { aisle: aisle, rack: rack, position: position })
-    .then(function(d) { if (d.success) showToast("Shelf location saved!", "success"); else showToast(d.message, "error"); });
-}
 
 
 
@@ -2506,3 +2461,75 @@ async function sendChatMessage() {
     }
   });
 })();
+
+// ============ SHELF MANAGEMENT ============
+function renderShelfManagement() {
+  var search = (document.getElementById("shelf-book-search") || {}).value || "";
+  search = search.toLowerCase();
+  var st = getPaginationState("shelf");
+  var page = st.page;
+  var limit = st.limit;
+  var query = "?page=" + page + "&limit=" + limit;
+  if (search) query += "&search=" + encodeURIComponent(search);
+
+  apiGet("/books" + query).then(function (res) {
+    var books = res.data || [];
+    setPaginationState("shelf", res.pagination || {});
+    renderPaginationBar("shelf", "shelf-books-pagination", "goToShelfPage", "changeShelfLimit");
+
+    var tb = document.getElementById("shelf-books-body");
+    if (!tb) return;
+    if (books.length === 0) {
+      tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>No books found.</p></td></tr>';
+      return;
+    }
+    tb.innerHTML = books.map(function(b) {
+      var bid = b._id || b.id;
+      return '<tr>' +
+        '<td>' + b.title + '</td>' +
+        '<td>' + b.author + '</td>' +
+        '<td>' + b.totalCopies + '</td>' +
+        '<td><button class="btn btn-sm btn-primary" onclick="manageShelfCopies(\'' + bid + '\', \'' + b.title.replace(/'/g, "\\'") + '\')">Manage Copies</button></td>' +
+        '</tr>';
+    }).join("");
+  });
+}
+function goToShelfPage(p) { var st = getPaginationState("shelf"); st.page = p; renderShelfManagement(); }
+function changeShelfLimit(l) { var st = getPaginationState("shelf"); st.page = 1; st.limit = l; renderShelfManagement(); }
+
+function manageShelfCopies(bookId, title) {
+  var panel = document.getElementById("shelf-copies-panel");
+  var titleEl = document.getElementById("shelf-copies-title");
+  if (panel) panel.style.display = "block";
+  if (titleEl) titleEl.textContent = "Manage Copies for: " + title;
+
+  apiGet("/books/" + bookId + "/copies").then(function (copies) {
+    var tb = document.getElementById("shelf-copies-body");
+    if (!tb) return;
+    if (!copies || copies.length === 0) {
+      tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No copies found.</p></td></tr>';
+      return;
+    }
+    tb.innerHTML = copies.map(function(c) {
+      var cid = c._id || c.id;
+      var sl = c.shelfLocation || { aisle: "", rack: "", position: "" };
+      return '<tr>' +
+        '<td>#' + c.copyNumber + '</td>' +
+        '<td>' + c.status + '</td>' +
+        '<td>' + c.condition + '</td>' +
+        '<td><input type="text" id="aisle-' + cid + '" value="' + sl.aisle + '" style="width:60px"></td>' +
+        '<td><input type="text" id="rack-' + cid + '" value="' + sl.rack + '" style="width:60px"></td>' +
+        '<td><input type="text" id="pos-' + cid + '" value="' + sl.position + '" style="width:60px"></td>' +
+        '<td><button class="btn btn-sm btn-primary" onclick="saveShelfLocation(\'' + cid + '\')">Save</button></td>' +
+        '</tr>';
+    }).join("");
+  });
+}
+
+function saveShelfLocation(copyId) {
+  var aisle = document.getElementById("aisle-" + copyId).value;
+  var rack = document.getElementById("rack-" + copyId).value;
+  var position = document.getElementById("pos-" + copyId).value;
+  apiPut("/books/copies/" + copyId, { aisle: aisle, rack: rack, position: position })
+    .then(function(d) { if (d.success) showToast("Shelf location saved!", "success"); else showToast(d.message, "error"); });
+}
