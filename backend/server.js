@@ -36,6 +36,7 @@ const bookRoutes         = require("./routes/books");
 const transactionRoutes  = require("./routes/transactions");
 const featureRoutes      = require("./routes/features");
 const chatRoutes         = require("./routes/chat");
+const analyticsRoutes    = require("./routes/analytics");
 const { verifyToken, verifyAdmin }      = require("./middleware/auth");
 
 const app = express();
@@ -315,11 +316,27 @@ app.use("/api/books",        bookRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/features",     featureRoutes);
 app.use("/api/chat",         chatRoutes);
+app.use("/api/analytics",    analyticsRoutes);
 
 // ============ USERS ============
 app.get("/api/users", verifyAdmin, async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = {};
+    if (req.query.search) {
+      const re = { $regex: req.query.search, $options: "i" };
+      filter.$or = [{ name: re }, { contact: re }];
+    }
+    if (req.query.role) filter.role = req.query.role;
+
+    const totalRecords = await User.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const users = await User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
     const result = [];
     for (const u of users) {
       const issuedCount = await Transaction.countDocuments({ userId: u._id, status: "issued" });
@@ -333,7 +350,15 @@ app.get("/api/users", verifyAdmin, async (req, res) => {
         accountId: account ? account._id : null
       });
     }
-    res.json(result);
+    res.json({
+      success: true,
+      data: result,
+      pagination: {
+        page, limit, totalRecords, totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -506,20 +531,48 @@ app.delete("/api/wishlist/:id", async (req, res) => {
 // ============ NOTIFICATIONS ============
 app.get("/api/notifications/:userEmail", async (req, res) => {
   try {
-    // Authorization Check: Student can only view their own notifications; Admin/Owner can view anyone's.
+    // Authorization Check
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.email !== req.params.userEmail) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own notifications." });
     }
-    res.json((await Notification.find({ userEmail: req.params.userEmail }).sort({ createdAt: -1 }).limit(30)).map(n => ({ ...n.toObject(), id: n._id })));
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = { userEmail: req.params.userEmail };
+    const totalRecords = await Notification.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const notifs = await Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    res.json({
+      success: true,
+      data: notifs.map(n => ({ ...n.toObject(), id: n._id })),
+      pagination: { page, limit, totalRecords, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+    });
   } catch(err) { res.status(500).json({ message: err.message }); }
 });
 app.get("/api/notifications/user/:userName", async (req, res) => {
   try {
-    // Authorization Check: Student can only view their own notifications; Admin/Owner can view anyone's.
+    // Authorization Check
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own notifications." });
     }
-    res.json((await Notification.find({ userName: req.params.userName }).sort({ createdAt: -1 }).limit(30)).map(n => ({ ...n.toObject(), id: n._id })));
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = { userName: req.params.userName };
+    const totalRecords = await Notification.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const notifs = await Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    res.json({
+      success: true,
+      data: notifs.map(n => ({ ...n.toObject(), id: n._id })),
+      pagination: { page, limit, totalRecords, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+    });
   } catch(err) { res.status(500).json({ message: err.message }); }
 });
 app.put("/api/notifications/:id/read", async (req, res) => {
@@ -570,7 +623,28 @@ app.get("/api/recommendations/:userName", async (req, res) => {
 
 // ============ ACTIVITY LOGS ============
 app.get("/api/activity", verifyAdmin, async (req, res) => {
-  try { res.json(await ActivityLog.find().sort({ createdAt: -1 }).limit(50)); } catch(err) { res.status(500).json({ message: err.message }); }
+  try {
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = {};
+    if (req.query.search) {
+      const re = { $regex: req.query.search, $options: "i" };
+      filter.$or = [{ action: re }, { performedBy: re }, { details: re }];
+    }
+
+    const totalRecords = await ActivityLog.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const logs = await ActivityLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    res.json({
+      success: true,
+      data: logs,
+      pagination: { page, limit, totalRecords, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+    });
+  } catch(err) { res.status(500).json({ message: err.message }); }
 });
 
 // ============ STATS / REPORTS ============
@@ -664,6 +738,37 @@ app.post("/api/ebooks", verifyAdmin, async (req, res) => {
 });
 app.delete("/api/ebooks/:id", verifyAdmin, async (req, res) => {
   try { const e = await EBook.findByIdAndDelete(req.params.id); res.json({ success: true, title: e ? e.title : "" }); } catch(err) { res.status(500).json({ message: err.message }); }
+});
+
+
+
+app.post("/api/ebooks/bulk", verifyAdmin, async (req, res) => {
+  try {
+    const ebooks = req.body.ebooks;
+    if (!Array.isArray(ebooks) || ebooks.length === 0) {
+      return res.status(400).json({ message: "An array of ebooks is required." });
+    }
+
+    const validEbooks = ebooks.filter(e => e.title && e.author && e.pdfUrl).map(e => ({
+      title: e.title,
+      author: e.author,
+      category: e.category || "General",
+      description: e.description || "",
+      pdfUrl: e.pdfUrl,
+      pages: e.pages || 0,
+      language: e.language || "English",
+      coverColor: e.coverColor || "#3b82f6"
+    }));
+
+    if (validEbooks.length === 0) {
+      return res.status(400).json({ message: "No valid E-Books found. Title, Author, and PDF URL are required." });
+    }
+
+    await EBook.insertMany(validEbooks);
+    res.json({ success: true, message: `Successfully imported ${validEbooks.length} E-Books.`, count: validEbooks.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // ============ EMAIL (Nodemailer) ============
@@ -761,6 +866,10 @@ const server = app.listen(PORT, () => {
   console.log("  ╚══════════════════════════════════════╝");
   console.log("");
 });
+
+// Initialize Socket.IO
+const socketManager = require("./socket");
+socketManager.init(server);
 
 // Configure explicit connection timeouts to protect against socket starvation / Slowloris DoS attacks
 server.keepAliveTimeout = 65000; // 65 seconds

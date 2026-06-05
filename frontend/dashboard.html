@@ -13,6 +13,33 @@
   <div class="orb orb-2"></div>  <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- E-BOOK BULK IMPORT MODAL -->
+  <div class="modal-overlay" id="ebookBulkModal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Bulk Import E-Books</h3>
+        <button class="modal-close" onclick="document.getElementById('ebookBulkModal').style.display='none'">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Upload a CSV or JSON file containing E-Book metadata. The file must contain the following columns/keys:</p>
+        <ul style="margin-bottom: 15px; color: var(--text-muted);">
+          <li><b>title</b> (required)</li>
+          <li><b>author</b> (required)</li>
+          <li><b>pdfUrl</b> (required)</li>
+          <li><b>category</b> (optional)</li>
+          <li><b>description</b> (optional)</li>
+          <li><b>pages</b> (optional)</li>
+          <li><b>language</b> (optional)</li>
+        </ul>
+        <div class="form-group">
+          <label>Select File (.csv or .json)</label>
+          <input type="file" id="ebookBulkFile" accept=".csv, .json" style="padding: 10px; width: 100%; border: 1px dashed var(--border-color); border-radius: 8px;">
+        </div>
+        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="handleBulkImport()">Import E-Books</button>
+      </div>
+    </div>
+  </div>
+
   <!-- BOOK DETAIL MODAL -->
   <div class="modal-overlay" id="bookDetailModal" style="display:none;">
     <div class="modal-content" id="bookDetailContent"></div>
@@ -386,6 +413,7 @@
             </tbody>
           </table>
         </div>
+        <div id="books-pagination"></div>
       </div>
     </div>
 
@@ -422,6 +450,7 @@
             <tbody id="users-table-body"><tr><td colspan="5" class="empty-state"><p>No users added yet.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="users-pagination"></div>
       </div>
     </div>
 
@@ -482,6 +511,7 @@
             <tbody id="transactions-table-body"><tr><td colspan="7" class="empty-state"><p>No transactions yet.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="transactions-pagination"></div>
       </div>
     </div>
 
@@ -505,6 +535,7 @@
             <tbody id="admin-exchanges-body"><tr><td colspan="6" class="empty-state"><p>No exchanges.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="admin-exchanges-pagination"></div>
       </div>
       <div class="glass-panel">
         <h3>Request History</h3>
@@ -556,6 +587,7 @@
             <tbody id="history-table-body"><tr><td colspan="6" class="empty-state"><p>No borrowing history yet.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="history-pagination"></div>
       </div>
     </div>
 
@@ -585,6 +617,71 @@
       </div>
       <div class="glass-panel">
         <div id="notifications-list"><p class="empty-state">No notifications.</p></div>
+        <div id="notifications-pagination"></div>
+      </div>
+    </div>
+
+    <!-- ADVANCED ANALYTICS (Admin/Owner only) -->
+    <div class="content-section admin-only" id="section-analytics">
+      <div class="section-header">
+        <h2>Advanced Analytics Dashboard</h2>
+        <button class="btn btn-primary btn-sm" onclick="renderAnalyticsDashboard()">🔄 Refresh Analytics</button>
+      </div>
+
+      <!-- KPI SUMMARY GRID -->
+      <div class="stats-grid" id="analytics-kpi-grid" style="margin-bottom: 24px;"></div>
+
+      <!-- ROW 1: TRENDS & CATEGORIES -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
+        <div class="glass-panel" style="display: flex; flex-direction: column;">
+          <h3>📈 Monthly Borrowing & Signups Trend</h3>
+          <div style="flex: 1; min-height: 300px; position: relative;">
+            <canvas id="chart-analytics-monthly" height="300"></canvas>
+          </div>
+        </div>
+        <div class="glass-panel" style="display: flex; flex-direction: column;">
+          <h3>🍰 Category Book Distribution</h3>
+          <div style="flex: 1; min-height: 300px; position: relative;">
+            <canvas id="chart-analytics-category" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 2: POPULAR BOOKS & ACTIVE READERS -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
+        <div class="glass-panel" style="display: flex; flex-direction: column;">
+          <h3>🔥 Top 10 Most Borrowed Books</h3>
+          <div style="flex: 1; min-height: 300px; position: relative;">
+            <canvas id="chart-analytics-popular" height="300"></canvas>
+          </div>
+        </div>
+        <div class="glass-panel" style="display: flex; flex-direction: column;">
+          <h3>🏆 Reader Leaderboard & Streaks</h3>
+          <div style="flex: 1; min-height: 300px; position: relative;">
+            <canvas id="chart-analytics-leaderboard" height="300"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 3: OVERDUE TREND & DETAILS -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 24px;">
+        <div class="glass-panel" style="display: flex; flex-direction: column;">
+          <h3>⚠️ Overdue Loans Month-on-Month Trend</h3>
+          <div style="flex: 1; min-height: 280px; position: relative;">
+            <canvas id="chart-analytics-overdue" height="280"></canvas>
+          </div>
+        </div>
+        <div class="glass-panel">
+          <h3>👥 Most Active Readers (Total Borrowings)</h3>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>#</th><th>Reader</th><th>Role</th><th>Total Borrows</th></tr></thead>
+              <tbody id="analytics-active-readers-body">
+                <tr><td colspan="4" class="empty-state"><p>No reader data found.</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -648,6 +745,7 @@
             <tbody id="activity-table-body"><tr><td colspan="4" class="empty-state"><p>No activity recorded yet.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="activity-pagination"></div>
       </div>
     </div>
 
@@ -663,7 +761,10 @@
       
       <!-- Add E-Book Form (Admin Only) -->
       <div class="glass-panel admin-only" id="add-ebook-panel" style="margin-bottom: 24px; display: none;">
-        <h3>Add New E-Book</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="margin: 0;">Add New E-Book</h3>
+          <button class="btn btn-secondary" onclick="document.getElementById('ebookBulkModal').style.display='flex'">Bulk Import (CSV/JSON)</button>
+        </div>
         <form id="add-ebook-form" onsubmit="addEBook(event)">
           <div class="form-grid">
             <div class="form-group">
@@ -770,6 +871,7 @@
             <tbody id="reservations-table-body"><tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr></tbody>
           </table>
         </div>
+        <div id="reservations-pagination"></div>
       </div>
     </div>
 
@@ -912,7 +1014,7 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
   
-
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="script.js"></script>
 </body>

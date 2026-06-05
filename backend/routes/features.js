@@ -56,7 +56,7 @@ router.post("/reservations", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get user's reservations (active only)
+// Get user's reservations — paginated
 router.get("/reservations/user/:userName", async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
@@ -64,8 +64,22 @@ router.get("/reservations/user/:userName", async (req, res) => {
     }
     // Auto-expire any past-due reservations first
     await expireOldReservations();
-    const reservations = await Reservation.find({ userName: req.params.userName }).sort({ createdAt: -1 }).limit(20);
-    res.json(reservations.map(r => ({ ...r.toObject(), id: r._id })));
+
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = { userName: req.params.userName };
+    const totalRecords = await Reservation.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const reservations = await Reservation.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    res.json({
+      success: true,
+      data: reservations.map(r => ({ ...r.toObject(), id: r._id })),
+      pagination: { page, limit, totalRecords, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -141,11 +155,26 @@ router.get("/exchanges/user/:userName", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get ALL exchanges (Admin)
+// Get ALL exchanges (Admin) — paginated
 router.get("/exchanges", verifyAdmin, async (req, res) => {
   try {
-    const exchanges = await Exchange.find().sort({ createdAt: -1 });
-    res.json(exchanges.map(e => ({ ...e.toObject(), id: e._id })));
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+
+    const totalRecords = await Exchange.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const exchanges = await Exchange.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    res.json({
+      success: true,
+      data: exchanges.map(e => ({ ...e.toObject(), id: e._id })),
+      pagination: { page, limit, totalRecords, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

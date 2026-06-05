@@ -14,35 +14,76 @@ const { verifyAdmin } = require("../middleware/auth");
 const ISSUE_LIMITS = { student: 3, teacher: 5, admin: 10, owner: 10 };
 const DUE_DAYS    = { student: 14, teacher: 30, admin: 30, owner: 30 };
 
-// GET all transactions
+// GET all transactions — paginated
 router.get("/", verifyAdmin, async (req, res) => {
   try {
-    const txs = await Transaction.find().sort({ createdAt: -1 });
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    // Build filter
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.search) {
+      filter.userName = { $regex: req.query.search, $options: "i" };
+    }
+
+    const totalRecords = await Transaction.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const txs = await Transaction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
     const enriched = [];
     for (const t of txs) {
       const book = await Book.findById(t.bookId);
       const fine = calcFine(t);
       enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
     }
-    res.json(enriched);
+
+    res.json({
+      success: true,
+      data: enriched,
+      pagination: {
+        page, limit, totalRecords, totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET history for a user
+// GET history for a user — paginated
 router.get("/history/:userName", async (req, res) => {
   try {
-    // Authorization Check: Student can only view their own history; Admin/Owner can view anyone's.
+    // Authorization Check
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only view your own history." });
     }
-    const txs = await Transaction.find({ userName: req.params.userName }).sort({ createdAt: -1 });
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    const totalRecords = await Transaction.countDocuments({ userName: req.params.userName });
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const txs = await Transaction.find({ userName: req.params.userName }).sort({ createdAt: -1 }).skip(skip).limit(limit);
     const enriched = [];
     for (const t of txs) {
       const book = await Book.findById(t.bookId);
       const fine = calcFine(t);
       enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
     }
-    res.json(enriched);
+
+    res.json({
+      success: true,
+      data: enriched,
+      pagination: {
+        page, limit, totalRecords, totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

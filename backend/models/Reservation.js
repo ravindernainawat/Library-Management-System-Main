@@ -13,5 +13,7 @@ const reservationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 reservationSchema.index({ bookId: 1, status: 1, position: 1 });
+reservationSchema.index({ userName: 1 });
+reservationSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Reservation", reservationSchema);

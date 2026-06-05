@@ -45,6 +45,93 @@ function apiDelete(endpoint) {
   return fetch(API_BASE + endpoint, { method: "DELETE", headers: getAuthHeaders() }).then(function (r) { return r.json(); });
 }
 
+// ============ PAGINATION ============
+// Per-section state: { page, limit, totalPages, totalRecords }
+var _pgState = {};
+
+function _pgKey(section) { return section; }
+
+function getPaginationState(section) {
+  if (!_pgState[section]) _pgState[section] = { page: 1, limit: 20, totalPages: 1, totalRecords: 0 };
+  return _pgState[section];
+}
+
+function setPaginationState(section, pagination) {
+  _pgState[section] = {
+    page:         pagination.page         || 1,
+    limit:        pagination.limit        || 20,
+    totalPages:   pagination.totalPages   || 1,
+    totalRecords: pagination.totalRecords || 0,
+    hasNextPage:  pagination.hasNextPage  || false,
+    hasPrevPage:  pagination.hasPrevPage  || false
+  };
+}
+
+/**
+ * Renders a pagination bar into containerId.
+ * onPageChange(newPage) is called when the user clicks Prev / Next.
+ * onLimitChange(newLimit) is called when the user changes rows per page.
+ */
+function renderPaginationBar(section, containerId, onPageChangeFnName, onLimitChangeFnName) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  var st = getPaginationState(section);
+  if (st.totalRecords === 0 && st.page === 1) { container.innerHTML = ""; return; }
+
+  var from = (st.page - 1) * st.limit + 1;
+  var to   = Math.min(st.page * st.limit, st.totalRecords);
+
+  var prevDisabled = !st.hasPrevPage ? "disabled" : "";
+  var nextDisabled = !st.hasNextPage ? "disabled" : "";
+
+  var prevIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>';
+  var nextIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  container.innerHTML =
+    '<div class="pagination-bar">' +
+      '<span class="pagination-info">Showing ' + from + '–' + to + ' of ' + st.totalRecords + ' records</span>' +
+      '<div class="pagination-controls">' +
+        '<div class="pagination-limit-wrap">' +
+          '<span>Per page:</span>' +
+          '<select onchange="' + (onLimitChangeFnName ? onLimitChangeFnName + '(parseInt(this.value))' : '') + '">' +
+          [10, 20, 50, 100].map(function(n) {
+            return '<option value="' + n + '"' + (n === st.limit ? ' selected' : '') + '>' + n + '</option>';
+          }).join('') +
+          '</select>' +
+        '</div>' +
+        '<button class="pagination-btn" ' + prevDisabled + ' onclick="' + onPageChangeFnName + '(' + (st.page - 1) + ')">' + prevIcon + ' Previous</button>' +
+        '<span class="pagination-page-label">Page ' + st.page + ' of ' + st.totalPages + '</span>' +
+        '<button class="pagination-btn" ' + nextDisabled + ' onclick="' + onPageChangeFnName + '(' + (st.page + 1) + ')">Next ' + nextIcon + '</button>' +
+      '</div>' +
+    '</div>';
+}
+
+// ============ PAGINATION HANDLERS ============
+function goToBooksPage(p) { var st = getPaginationState("books"); st.page = p; renderBooks(); }
+function changeBooksLimit(l) { var st = getPaginationState("books"); st.page = 1; st.limit = l; renderBooks(); }
+
+function goToTransactionsPage(p) { var st = getPaginationState("transactions"); st.page = p; renderTransactions(); }
+function changeTransactionsLimit(l) { var st = getPaginationState("transactions"); st.page = 1; st.limit = l; renderTransactions(); }
+
+function goToUsersPage(p) { var st = getPaginationState("users"); st.page = p; renderUsers(); }
+function changeUsersLimit(l) { var st = getPaginationState("users"); st.page = 1; st.limit = l; renderUsers(); }
+
+function goToHistoryPage(p) { var st = getPaginationState("history"); st.page = p; renderBorrowingHistory(); }
+function changeHistoryLimit(l) { var st = getPaginationState("history"); st.page = 1; st.limit = l; renderBorrowingHistory(); }
+
+function goToNotificationsPage(p) { var st = getPaginationState("notifications"); st.page = p; renderNotifications(); }
+function changeNotificationsLimit(l) { var st = getPaginationState("notifications"); st.page = 1; st.limit = l; renderNotifications(); }
+
+function goToActivityPage(p) { var st = getPaginationState("activity"); st.page = p; renderActivityLogs(); }
+function changeActivityLimit(l) { var st = getPaginationState("activity"); st.page = 1; st.limit = l; renderActivityLogs(); }
+
+function goToReservationsPage(p) { var st = getPaginationState("reservations"); st.page = p; renderReservations(); }
+function changeReservationsLimit(l) { var st = getPaginationState("reservations"); st.page = 1; st.limit = l; renderReservations(); }
+
+function goToAdminExchangesPage(p) { var st = getPaginationState("admin-exchanges"); st.page = p; renderAdminExchanges(); }
+function changeAdminExchangesLimit(l) { var st = getPaginationState("admin-exchanges"); st.page = 1; st.limit = l; renderAdminExchanges(); }
+
 // ============ AUTH ============
 function getCurrentUser() { var d = localStorage.getItem("bs_currentUser"); return d ? JSON.parse(d) : null; }
 function isAdmin() { var u = getCurrentUser(); return u && (u.role === "admin" || u.role === "owner"); }
@@ -143,6 +230,7 @@ function setupRoleBasedUI(user) {
       sidebarLink("requests", "Requests", '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', true) +
       sidebarLink("shelf", "Shelf Locations", '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>') +
       '<span class="sidebar-label">Insights</span>' +
+      sidebarLink("analytics", "Analytics", '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>') +
       sidebarLink("reports", "Reports", '<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>') +
       sidebarLink("fines", "Fine Reports", '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>') +
       sidebarLink("activity", "Activity Logs", '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') +
@@ -277,6 +365,7 @@ function switchSection(name) {
   if (name === "my-fines") renderMyFines();
   if (name === "achievements") { renderGamificationStats(); renderLeaderboard(); }
   if (name === "notifications") renderNotifications();
+  if (name === "analytics") renderAnalyticsDashboard();
   if (name === "reports") renderReports();
   if (name === "fines") renderFineReport();
   if (name === "activity") renderActivityLogs();
@@ -327,8 +416,9 @@ function updateDashboardStats() {
 }
 function loadStudentNotifCount() {
   var user = getCurrentUser();
-  apiGet("/notifications/" + encodeURIComponent(user.email)).then(function (n) {
-    var unread = n.filter(function (x) { return !x.read; }).length;
+  apiGet("/notifications/" + encodeURIComponent(user.email) + "?limit=1000").then(function (n) {
+    var list = Array.isArray(n) ? n : (n.data || []);
+    var unread = list.filter(function (x) { return !x.read; }).length;
     updateNotificationBadge(unread);
   });
 }
@@ -403,7 +493,7 @@ function renderDashStockDonut(stats) {
 }
 
 function renderDashCategoryDonut() {
-  apiGet("/books").then(function(books) {
+  apiGet("/books?paginate=false").then(function(books) {
     if (!books || !books.length) return;
     var catMap = {};
     books.forEach(function(b) {
@@ -428,7 +518,8 @@ function renderDashCategoryDonut() {
 
 // ============ DASHBOARD: TOP BOOKS ============
 function renderDashTopBooks() {
-  apiGet("/transactions").then(function(txs) {
+  apiGet("/transactions?limit=100").then(function(res) {
+    var txs = Array.isArray(res) ? res : (res.data || []);
     if (!txs || !txs.length) {
       var el = document.getElementById("dash-top-books");
       if (el) el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">No borrow data yet</p>';
@@ -457,7 +548,8 @@ function renderDashTopBooks() {
 
 // ============ DASHBOARD: RECENT ACTIVITIES ============
 function renderDashRecentActivities() {
-  apiGet("/activity").then(function(logs) {
+  apiGet("/activity").then(function(res) {
+    var logs = Array.isArray(res) ? res : (res.data || []);
     var el = document.getElementById("dash-recent-activities");
     if (!el) return;
     if (!logs || !logs.length) { el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">No activity yet</p>'; return; }
@@ -654,70 +746,69 @@ function renderBooks() {
   search = search.toLowerCase();
   var admin = isAdmin(), user = getCurrentUser();
 
-  apiGet("/books").then(function (books) {
-    var fDept = document.getElementById("filter-department");
-    var fBranch = document.getElementById("filter-branch");
-    var fCat = document.getElementById("filter-category");
-    var fSort = document.getElementById("sort-books");
-    
-    if (fDept) {
-      var currentDept = fDept.value;
-      fDept.innerHTML = '<option value="">All Departments</option>' + DEPARTMENT_LIST.map(function(d){ return '<option value="' + d + '">' + d + '</option>' }).join("");
-      fDept.value = currentDept;
-    }
-    if (fBranch) {
-      var currentBranch = fBranch.value;
-      fBranch.innerHTML = '<option value="">All Branches</option>' + BRANCH_LIST.map(function(b){ return '<option value="' + b + '">' + b + '</option>' }).join("");
-      fBranch.value = currentBranch;
-    }
-    // Dynamically populate category filter from book data
-    if (fCat) {
-      var currentCat = fCat.value;
-      var categories = [];
-      books.forEach(function(b) {
-        if (b.category && categories.indexOf(b.category) === -1) categories.push(b.category);
+  var st = getPaginationState("books");
+  var page = st.page;
+  var limit = st.limit;
+  
+  var fDept = document.getElementById("filter-department");
+  var fBranch = document.getElementById("filter-branch");
+  var fCat = document.getElementById("filter-category");
+  var fSort = document.getElementById("sort-books");
+
+  if (fDept) {
+    var currentDept = fDept.value;
+    fDept.innerHTML = '<option value="">All Departments</option>' + DEPARTMENT_LIST.map(function(d){ return '<option value="' + d + '">' + d + '</option>' }).join("");
+    fDept.value = currentDept;
+  }
+  if (fBranch) {
+    var currentBranch = fBranch.value;
+    fBranch.innerHTML = '<option value="">All Branches</option>' + BRANCH_LIST.map(function(b){ return '<option value="' + b + '">' + b + '</option>' }).join("");
+    fBranch.value = currentBranch;
+  }
+
+  var fDeptVal = fDept ? fDept.value : "";
+  var fBranchVal = fBranch ? fBranch.value : "";
+  var fCatVal = fCat ? fCat.value : "";
+  var sortVal = fSort ? fSort.value : "";
+
+  var query = "?page=" + page + "&limit=" + limit;
+  if (search) query += "&search=" + encodeURIComponent(search);
+  if (fDeptVal) query += "&department=" + encodeURIComponent(fDeptVal);
+  if (fBranchVal) query += "&branch=" + encodeURIComponent(fBranchVal);
+  if (fCatVal) query += "&category=" + encodeURIComponent(fCatVal);
+  if (sortVal) query += "&sort=" + encodeURIComponent(sortVal);
+
+  apiGet("/books" + query).then(function (res) {
+    var books = res.data || [];
+    setPaginationState("books", res.pagination || {});
+    renderPaginationBar("books", "books-pagination", "goToBooksPage", "changeBooksLimit");
+
+    // Dynamically populate category filter from cached allCategories
+    if (fCat && (!window.allCategories || window.allCategories.length === 0)) {
+      apiGet("/books?paginate=false").then(function(allBooks) {
+        var categories = [];
+        allBooks.forEach(function(b) {
+          if (b.category && categories.indexOf(b.category) === -1) categories.push(b.category);
+        });
+        categories.sort();
+        window.allCategories = categories;
+        var currentCat = fCat.value;
+        fCat.innerHTML = '<option value="">All Categories</option>' + categories.map(function(c){ return '<option value="' + c + '">' + c + '</option>' }).join("");
+        fCat.value = currentCat;
       });
-      categories.sort();
-      fCat.innerHTML = '<option value="">All Categories</option>' + categories.map(function(c){ return '<option value="' + c + '">' + c + '</option>' }).join("");
+    } else if (fCat) {
+      var currentCat = fCat.value;
+      fCat.innerHTML = '<option value="">All Categories</option>' + (window.allCategories || []).map(function(c){ return '<option value="' + c + '">' + c + '</option>' }).join("");
       fCat.value = currentCat;
     }
 
-    var fDeptVal = fDept ? fDept.value : "";
-    var fBranchVal = fBranch ? fBranch.value : "";
-    var fCatVal = fCat ? fCat.value : "";
-    var sortVal = fSort ? fSort.value : "";
-
-    var filtered = books.filter(function (b) {
-      var matchSearch = !search || (b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search) || b.category.toLowerCase().includes(search));
-      var matchDept = !fDeptVal || (b.department === fDeptVal);
-      var matchBranch = !fBranchVal || (b.branch === fBranchVal);
-      var matchCat = !fCatVal || (b.category === fCatVal);
-      return matchSearch && matchDept && matchBranch && matchCat;
-    });
-
-    // Apply sorting
-    if (sortVal) {
-      filtered.sort(function(a, b) {
-        switch(sortVal) {
-          case "title-asc": return a.title.localeCompare(b.title);
-          case "title-desc": return b.title.localeCompare(a.title);
-          case "author-asc": return a.author.localeCompare(b.author);
-          case "author-desc": return b.author.localeCompare(a.author);
-          case "avail-desc": return (b.availableCopies || 0) - (a.availableCopies || 0);
-          case "avail-asc": return (a.availableCopies || 0) - (b.availableCopies || 0);
-          default: return 0;
-        }
-      });
-    }
-
     var tbody = document.getElementById("books-table-body");
-    if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No books found.</p></td></tr>'; return; }
+    if (books.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No books found.</p></td></tr>'; return; }
 
-    // Get reviews for ratings and requests for student badges
     var reqEndpoint = isAdmin() ? "/requests" : "/requests/my";
     Promise.all([apiGet(reqEndpoint)]).then(function (results) {
-      var requests = Array.isArray(results[0]) ? results[0] : [];
-      tbody.innerHTML = filtered.map(function (b) {
+      var requests = Array.isArray(results[0]) ? results[0] : (results[0].data || []);
+      tbody.innerHTML = books.map(function (b) {
         var bid = b._id || b.id;
         var status = b.availableCopies > 0 ? '<span class="badge badge-success">Available (' + b.availableCopies + ")</span>" : '<span class="badge badge-danger">All Issued</span>';
         var actions = "";
@@ -918,7 +1009,14 @@ function removeFromWishlist(id) { if (!confirm("Remove this book from your wishl
 // ============ BORROWING HISTORY ============
 function renderBorrowingHistory() {
   var user = getCurrentUser(); if (!user) return;
-  apiGet("/transactions/history/" + encodeURIComponent(user.name)).then(function (txs) {
+  var st = getPaginationState("history");
+  var page = st.page;
+  var limit = st.limit;
+  apiGet("/transactions/history/" + encodeURIComponent(user.name) + "?page=" + page + "&limit=" + limit).then(function (res) {
+    var txs = res.data || [];
+    setPaginationState("history", res.pagination || {});
+    renderPaginationBar("history", "history-pagination", "goToHistoryPage", "changeHistoryLimit");
+
     var tb = document.getElementById("history-table-body");
     if (txs.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No borrowing history yet.</p></td></tr>'; return; }
     tb.innerHTML = txs.map(function (t) {
@@ -931,7 +1029,8 @@ function renderBorrowingHistory() {
 
 function renderMyFines() {
   var user = getCurrentUser(); if (!user) return;
-  apiGet("/transactions/history/" + encodeURIComponent(user.name)).then(function (txs) {
+  apiGet("/transactions/history/" + encodeURIComponent(user.name) + "?limit=1000").then(function (res) {
+    var txs = Array.isArray(res) ? res : (res.data || []);
     var fineTxs = Array.isArray(txs) ? txs.filter(function(t) { return t.fine > 0 || t.damageFine > 0 || t.totalFine > 0; }) : [];
     
     var tb = document.getElementById("my-fines-table-body");
@@ -971,9 +1070,16 @@ function renderMyFines() {
 // ============ NOTIFICATIONS ============
 function renderNotifications() {
   var user = getCurrentUser(); if (!user) return;
-  apiGet("/notifications/" + encodeURIComponent(user.email)).then(function (notifs) {
+  var st = getPaginationState("notifications");
+  var page = st.page;
+  var limit = st.limit;
+  apiGet("/notifications/" + encodeURIComponent(user.email) + "?page=" + page + "&limit=" + limit).then(function (res) {
+    var notifs = res.data || [];
+    setPaginationState("notifications", res.pagination || {});
+    renderPaginationBar("notifications", "notifications-pagination", "goToNotificationsPage", "changeNotificationsLimit");
+
     var container = document.getElementById("notifications-list");
-    if (!Array.isArray(notifs) || notifs.length === 0) { container.innerHTML = '<p class="empty-state">No notifications.</p>'; return; }
+    if (notifs.length === 0) { container.innerHTML = '<p class="empty-state">No notifications.</p>'; return; }
     container.innerHTML = notifs.map(function (n) {
       return '<div class="notif-item ' + (n.read ? "" : "unread") + '" onclick="markNotifRead(\'' + (n._id || n.id) + '\')">' +
         '<span class="notif-dot"></span><div><div class="notif-message">' + n.message + '</div><div class="notif-time">' + formatDateTime(n.createdAt) + "</div></div></div>";
@@ -984,6 +1090,221 @@ function markNotifRead(id) { apiPut("/notifications/" + id + "/read").then(funct
 function markAllNotificationsRead() {
   var user = getCurrentUser(); if (!user) return;
   apiPut("/notifications/read-all/" + encodeURIComponent(user.email)).then(function () { renderNotifications(); loadStudentNotifCount(); showToast("All marked as read.", "info"); });
+}
+
+// ============ ADVANCED ANALYTICS DASHBOARD ============
+var _analyticsCharts = {};
+
+function _destroyAnalyticsChart(key) {
+  if (_analyticsCharts[key]) { _analyticsCharts[key].destroy(); _analyticsCharts[key] = null; }
+}
+
+function _analyticsChartColors() {
+  var isLight = document.body.classList.contains("light-mode");
+  return {
+    text: isLight ? "rgba(30,30,30,0.7)" : "rgba(255,255,255,0.65)",
+    grid: isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)",
+    tooltip: isLight ? "rgba(30,30,30,0.9)" : "rgba(0,0,0,0.85)"
+  };
+}
+
+function renderAnalyticsDashboard() {
+  if (!isAdmin()) return;
+  var kpiGrid = document.getElementById("analytics-kpi-grid");
+  if (kpiGrid) kpiGrid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-secondary);width:100%;"><span class="loader"></span> Loading analytics…</div>';
+
+  apiGet("/analytics").then(function (res) {
+    if (!res.success) { showToast("Failed to load analytics: " + (res.message || "Unknown error"), "error"); return; }
+    var d = res;
+    var s = d.summary;
+
+    // ---- KPI Cards ----
+    if (kpiGrid) {
+      kpiGrid.innerHTML =
+        _kpiCard("📚", "Total Books", s.totalBooks, "var(--info)") +
+        _kpiCard("📖", "Total Copies", s.totalCopies, "#6366f1") +
+        _kpiCard("✅", "Available", s.availableCopies, "var(--success)") +
+        _kpiCard("📤", "Issued", s.issuedBooks, "var(--warning)") +
+        _kpiCard("👥", "Total Users", s.totalUsers, "#3b82f6") +
+        _kpiCard("🎓", "Students", s.students, "#8b5cf6") +
+        _kpiCard("🧑‍🏫", "Teachers", s.teachers, "#14b8a6") +
+        _kpiCard("🛡️", "Admins", s.admins, "#f97316") +
+        _kpiCard("📋", "Reservations", s.activeReservations, "#ec4899") +
+        _kpiCard("🔄", "Exchanges", s.activeExchanges, "#06b6d4") +
+        _kpiCard("💰", "Total Fines", "₹" + s.totalFines, "var(--danger)") +
+        _kpiCard("✔️", "Collected", "₹" + s.collectedFines, "#10b981") +
+        _kpiCard("⏳", "Unpaid", "₹" + s.unpaidFines, "#ef4444") +
+        _kpiCard("⚠️", "Overdue", s.totalOverdue, "#e11d48");
+    }
+
+    var clr = _analyticsChartColors();
+
+    // ---- Monthly Trend Chart (Line) ----
+    (function () {
+      var canvas = document.getElementById("chart-analytics-monthly");
+      if (!canvas || typeof Chart === "undefined") return;
+      _destroyAnalyticsChart("monthly");
+      var labels = d.monthlyAnalytics.map(function (m) { return m.label; });
+      _analyticsCharts.monthly = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Issues", data: d.monthlyAnalytics.map(function (m) { return m.issues; }), borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,0.12)", fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2.5 },
+            { label: "Returns", data: d.monthlyAnalytics.map(function (m) { return m.returns; }), borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.10)", fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2.5 },
+            { label: "New Users", data: d.monthlyAnalytics.map(function (m) { return m.newUsers; }), borderColor: "#f59e0b", backgroundColor: "rgba(245,158,11,0.10)", fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2.5 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "top", labels: { color: clr.text, padding: 16, usePointStyle: true, pointStyle: "circle", font: { size: 12 } } },
+            tooltip: { backgroundColor: clr.tooltip, titleColor: "#fff", bodyColor: "#fff", cornerRadius: 10, padding: 12 }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: clr.text, stepSize: 1 }, grid: { color: clr.grid } },
+            x: { ticks: { color: clr.text }, grid: { display: false } }
+          }
+        }
+      });
+    })();
+
+    // ---- Category Distribution (Doughnut) ----
+    (function () {
+      var canvas = document.getElementById("chart-analytics-category");
+      if (!canvas || typeof Chart === "undefined") return;
+      _destroyAnalyticsChart("category");
+      var cats = d.categoryStats.booksPerCategory;
+      var palette = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#ec4899','#8b5cf6','#14b8a6','#f97316','#06b6d4','#84cc16','#e11d48','#a855f7','#22d3ee','#eab308'];
+      _analyticsCharts.category = new Chart(canvas.getContext("2d"), {
+        type: "doughnut",
+        data: {
+          labels: cats.map(function (c) { return c.category || "Uncategorized"; }),
+          datasets: [{ data: cats.map(function (c) { return c.count; }), backgroundColor: cats.map(function (_, i) { return palette[i % palette.length]; }), borderWidth: 0, hoverOffset: 10 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "58%",
+          plugins: {
+            legend: { position: "right", labels: { color: clr.text, padding: 10, boxWidth: 12, font: { size: 11 } } },
+            tooltip: { backgroundColor: clr.tooltip, titleColor: "#fff", bodyColor: "#fff", cornerRadius: 10, padding: 12 }
+          }
+        }
+      });
+    })();
+
+    // ---- Popular Books (Horizontal Bar) ----
+    (function () {
+      var canvas = document.getElementById("chart-analytics-popular");
+      if (!canvas || typeof Chart === "undefined") return;
+      _destroyAnalyticsChart("popular");
+      var books = d.popularBooks;
+      var gradient = ['#6366f1','#818cf8','#a5b4fc','#c7d2fe','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#14b8a6','#5eead4'];
+      _analyticsCharts.popular = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: books.map(function (b) { return b.title.length > 22 ? b.title.substring(0, 22) + "…" : b.title; }),
+          datasets: [{ label: "Borrows", data: books.map(function (b) { return b.borrowCount; }), backgroundColor: books.map(function (_, i) { return gradient[i % gradient.length]; }), borderRadius: 6, borderSkipped: false, barPercentage: 0.7 }]
+        },
+        options: {
+          indexAxis: "y", responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: clr.tooltip, titleColor: "#fff", bodyColor: "#fff", cornerRadius: 10, padding: 12 }
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: clr.text, stepSize: 1 }, grid: { color: clr.grid } },
+            y: { ticks: { color: clr.text, font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+    })();
+
+    // ---- Leaderboard (Horizontal Bar) ----
+    (function () {
+      var canvas = document.getElementById("chart-analytics-leaderboard");
+      if (!canvas || typeof Chart === "undefined") return;
+      _destroyAnalyticsChart("leaderboard");
+      var users = d.userAnalytics.leaderboardUsers;
+      var medals = ['#fbbf24','#9ca3af','#cd7f32','#6366f1','#3b82f6','#8b5cf6','#14b8a6','#ec4899','#f97316','#06b6d4'];
+      _analyticsCharts.leaderboard = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: users.map(function (u) { return u.name || u.email || "User"; }),
+          datasets: [{ label: "Points", data: users.map(function (u) { return u.points || 0; }), backgroundColor: users.map(function (_, i) { return medals[i % medals.length]; }), borderRadius: 6, borderSkipped: false, barPercentage: 0.7 }]
+        },
+        options: {
+          indexAxis: "y", responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: clr.tooltip, titleColor: "#fff", bodyColor: "#fff", cornerRadius: 10, padding: 12,
+              callbacks: { afterLabel: function (ctx) { var u = users[ctx.dataIndex]; return "Streak: " + (u.readingStreak || 0) + " days"; } }
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: clr.text }, grid: { color: clr.grid } },
+            y: { ticks: { color: clr.text, font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+    })();
+
+    // ---- Overdue Trend (Line) ----
+    (function () {
+      var canvas = document.getElementById("chart-analytics-overdue");
+      if (!canvas || typeof Chart === "undefined") return;
+      _destroyAnalyticsChart("overdue");
+      var trend = d.overdueAnalytics.trend;
+      _analyticsCharts.overdue = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          labels: trend.map(function (t) { return t.label; }),
+          datasets: [{ label: "Overdue Books", data: trend.map(function (t) { return t.count; }), borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.13)", fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: "#ef4444", pointHoverRadius: 8, borderWidth: 2.5 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { color: clr.text, usePointStyle: true, pointStyle: "circle", font: { size: 12 } } },
+            tooltip: { backgroundColor: clr.tooltip, titleColor: "#fff", bodyColor: "#fff", cornerRadius: 10, padding: 12 }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: clr.text, stepSize: 1 }, grid: { color: clr.grid } },
+            x: { ticks: { color: clr.text }, grid: { display: false } }
+          }
+        }
+      });
+    })();
+
+    // ---- Active Readers Table ----
+    (function () {
+      var tb = document.getElementById("analytics-active-readers-body");
+      if (!tb) return;
+      var readers = d.userAnalytics.activeReaders;
+      if (!readers || readers.length === 0) {
+        tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>No reader data found.</p></td></tr>';
+        return;
+      }
+      var rankIcons = ["🥇", "🥈", "🥉"];
+      tb.innerHTML = readers.map(function (r, i) {
+        var rank = i < 3 ? rankIcons[i] : (i + 1);
+        var roleBadge = '<span class="badge badge-' + r.userRole + '">' + r.userRole + '</span>';
+        return '<tr><td>' + rank + '</td><td><strong>' + (r.userName || "Unknown") + '</strong></td><td>' + roleBadge + '</td><td><strong>' + r.count + '</strong></td></tr>';
+      }).join("");
+    })();
+
+  }).catch(function (err) {
+    console.error("Analytics load error:", err);
+    showToast("Failed to load analytics dashboard.", "error");
+  });
+}
+
+function _kpiCard(icon, label, value, color) {
+  return '<div class="report-stat" style="border-left: 3px solid ' + color + ';">' +
+    '<div style="font-size:1.6rem;margin-bottom:4px;">' + icon + '</div>' +
+    '<div class="report-val" style="color:' + color + ';font-size:1.5rem;">' + value + '</div>' +
+    '<div class="report-lbl">' + label + '</div>' +
+  '</div>';
 }
 
 // ============ REPORTS & ANALYTICS ============
@@ -1102,7 +1423,14 @@ function renderFineReport() {
 
 function renderActivityLogs() {
   if (!isAdmin()) return;
-  apiGet("/activity").then(function (logs) {
+  var st = getPaginationState("activity");
+  var page = st.page;
+  var limit = st.limit;
+  apiGet("/activity?page=" + page + "&limit=" + limit).then(function (res) {
+    var logs = res.data || [];
+    setPaginationState("activity", res.pagination || {});
+    renderPaginationBar("activity", "activity-pagination", "goToActivityPage", "changeActivityLimit");
+
     var tb = document.getElementById("activity-table-body");
     if (!tb) return;
     if (logs.length === 0) { tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>No activity recorded yet.</p></td></tr>'; return; }
@@ -1166,10 +1494,17 @@ function issueRequest(id) { apiPut("/requests/" + id + "/issue").then(function (
 
 function renderAdminExchanges() {
   if (!isAdmin()) return;
-  apiGet("/exchanges").then(function (exchanges) {
+  var st = getPaginationState("admin-exchanges");
+  var page = st.page;
+  var limit = st.limit;
+  apiGet("/exchanges?page=" + page + "&limit=" + limit).then(function (res) {
+    var exchanges = res.data || [];
+    setPaginationState("admin-exchanges", res.pagination || {});
+    renderPaginationBar("admin-exchanges", "admin-exchanges-pagination", "goToAdminExchangesPage", "changeAdminExchangesLimit");
+
     var tb = document.getElementById("admin-exchanges-body");
     if (!tb) return;
-    if (!Array.isArray(exchanges) || exchanges.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges.</p></td></tr>'; return; }
+    if (exchanges.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No exchanges.</p></td></tr>'; return; }
     tb.innerHTML = exchanges.map(function(e) {
       var badge = '<span class="badge badge-' + e.status + '">' + e.status + '</span>';
       var action = "--";
@@ -1233,10 +1568,19 @@ function renderUsers() {
     });
   }
   
-  apiGet("/users").then(function (users) {
+  var st = getPaginationState("users");
+  var page = st.page;
+  var limit = st.limit;
+
+  apiGet("/users?page=" + page + "&limit=" + limit).then(function (res) {
+    var users = res.data || [];
+    setPaginationState("users", res.pagination || {});
+    renderPaginationBar("users", "users-pagination", "goToUsersPage", "changeUsersLimit");
+
     var tb = document.getElementById("users-table-body");
     if (users.length === 0) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No users.</p></td></tr>'; return; }
     tb.innerHTML = users.map(function (u, i) {
+      var displayIdx = (st.page - 1) * st.limit + i + 1;
       var issuedBadge = u.issuedCount > 0 ? '<span class="badge badge-warning">' + u.issuedCount + " book" + (u.issuedCount > 1 ? "s" : "") + "</span>" : '<span style="color:var(--text-muted)">None</span>';
       var statusBadge = u.status === "active" ? '<span class="badge badge-success">Active</span>' : u.status === "blocked" ? '<span class="badge badge-blocked">Blocked</span>' : '<span class="badge badge-warning">Pending</span>';
       if (u.blockedReason) statusBadge += ' <small style="color:var(--text-muted)">(' + u.blockedReason + ')</small>';
@@ -1254,7 +1598,7 @@ function renderUsers() {
         }
       }
       
-      return '<tr><td style="color:var(--text-muted);font-family:monospace">#' + (i + 1) + '</td><td style="color:var(--text-primary);font-weight:500">' + u.name + "</td><td>" + u.contact + "</td><td>" + issuedBadge + "</td><td>" + statusBadge + '</td><td class="actions-cell">' + actions + "</td></tr>";
+      return '<tr><td style="color:var(--text-muted);font-family:monospace">#' + displayIdx + '</td><td style="color:var(--text-primary);font-weight:500">' + u.name + "</td><td>" + u.contact + "</td><td>" + issuedBadge + "</td><td>" + statusBadge + '</td><td class="actions-cell">' + actions + "</td></tr>";
     }).join("");
   });
 }
@@ -1324,8 +1668,17 @@ function returnBook(id) {
 }
 function renderTransactions() {
   var user = getCurrentUser(), admin = isAdmin();
-  apiGet("/transactions").then(function (txs) {
-    if (user && user.role === "student") txs = txs.filter(function (t) { return t.userName === user.name; });
+  var url = admin ? "/transactions" : "/transactions/history/" + encodeURIComponent(user.name);
+  
+  var st = getPaginationState("transactions");
+  var page = st.page;
+  var limit = st.limit;
+  
+  apiGet(url + "?page=" + page + "&limit=" + limit).then(function (res) {
+    var txs = res.data || [];
+    setPaginationState("transactions", res.pagination || {});
+    renderPaginationBar("transactions", "transactions-pagination", "goToTransactionsPage", "changeTransactionsLimit");
+
     var tb = document.getElementById("transactions-table-body");
     if (txs.length === 0) { tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No transactions.</p></td></tr>'; return; }
     tb.innerHTML = txs.map(function (t) {
@@ -1396,6 +1749,57 @@ function addEBook(e) {
   });
 }
 
+function handleBulkImport() {
+  if (!isAdmin()) return;
+  var fileInput = document.getElementById("ebookBulkFile");
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showToast("Please select a file first.", "error");
+    return;
+  }
+  var file = fileInput.files[0];
+  var reader = new FileReader();
+  
+  reader.onload = function(e) {
+    var content = e.target.result;
+    var ebooks = [];
+    
+    if (file.name.endsWith(".json")) {
+      try { ebooks = JSON.parse(content); }
+      catch(err) { showToast("Invalid JSON file.", "error"); return; }
+    } else if (file.name.endsWith(".csv")) {
+      var lines = content.split(/\r\n|\n/).filter(function(l) { return l.trim(); });
+      if (lines.length < 2) { showToast("CSV file must contain a header row and data.", "error"); return; }
+      var headers = lines[0].split(",").map(function(h) { return h.trim(); });
+      
+      for (var i = 1; i < lines.length; i++) {
+        // Handle basic CSV parsing (ignores commas inside quotes for simplicity)
+        var values = lines[i].split(",").map(function(v) { return v.trim(); });
+        var obj = {};
+        for (var j = 0; j < headers.length; j++) {
+          if (values[j]) obj[headers[j]] = values[j].replace(/^"|"$/g, "");
+        }
+        ebooks.push(obj);
+      }
+    } else {
+      showToast("Unsupported file format. Please use .csv or .json.", "error");
+      return;
+    }
+    
+    apiPost("/ebooks/bulk", { ebooks: ebooks }).then(function(d) {
+      if (d.success) {
+        showToast(d.message, "success");
+        document.getElementById('ebookBulkModal').style.display = 'none';
+        fileInput.value = "";
+        renderDigitalLibrary();
+      } else {
+        showToast(d.message || "Bulk import failed.", "error");
+      }
+    });
+  };
+  reader.onerror = function() { showToast("Failed to read file.", "error"); };
+  reader.readAsText(file);
+}
+
 function deleteEBook(id, title) {
   if (!isAdmin()) return;
   if (!confirm("Are you sure you want to delete the e-book \"" + title + "\"?")) return;
@@ -1463,7 +1867,9 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function checkOverdueAlerts(user) {
-  apiGet("/transactions").then(function(txs) {
+  var url = isAdmin() ? "/transactions" : "/transactions/history/" + encodeURIComponent(user.name);
+  apiGet(url).then(function(res) {
+    var txs = Array.isArray(res) ? res : (res.data || []);
     var overdueCount = 0;
     var totalFine = 0;
     txs.forEach(function(t) {
@@ -1734,10 +2140,17 @@ function saveShelfLocation(copyId) {
 // ============ RESERVATIONS ============
 function renderReservations() {
   var user = getCurrentUser();
-  apiGet("/reservations/user/" + encodeURIComponent(user.name)).then(function(reservations) {
+  var st = getPaginationState("reservations");
+  var page = st.page;
+  var limit = st.limit;
+  apiGet("/reservations/user/" + encodeURIComponent(user.name) + "?page=" + page + "&limit=" + limit).then(function(res) {
+    var reservations = res.data || [];
+    setPaginationState("reservations", res.pagination || {});
+    renderPaginationBar("reservations", "reservations-pagination", "goToReservationsPage", "changeReservationsLimit");
+
     var tb = document.getElementById("reservations-table-body");
     if (!tb) return;
-    if (!Array.isArray(reservations) || !reservations.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>'; return; }
+    if (reservations.length === 0) { tb.innerHTML = '<tr><td colspan="5" class="empty-state"><p>No reservations.</p></td></tr>'; return; }
     tb.innerHTML = reservations.map(function(r) {
       var statusBadge, cancelBtn = "--";
       if (r.status === "waiting") {
@@ -2041,3 +2454,55 @@ async function sendChatMessage() {
     messagesContainer.appendChild(aiDiv);
   }
 }
+
+// ============ REAL-TIME NOTIFICATIONS (SOCKET.IO) ============
+(function initSocketIO() {
+  if (typeof io === 'undefined') return;
+  var token = localStorage.getItem("bs_token");
+  if (!token) return; // Only connect if logged in
+
+  var socket = io({
+    auth: { token: token }
+  });
+
+  socket.on("connect", function() {
+    console.log("[Socket.IO] Connected to real-time notification server");
+  });
+
+  socket.on("disconnect", function(reason) {
+    console.warn("[Socket.IO] Disconnected:", reason);
+  });
+
+  socket.on("connect_error", function(err) {
+    console.error("[Socket.IO] Connection error:", err.message);
+  });
+
+  socket.on("new_notification", function(notification) {
+    console.log("[Socket.IO] New notification received:", notification);
+    
+    // Show live toast
+    if (typeof showToast === "function") {
+      showToast(notification.message, "info");
+    }
+
+    // Update notification badges (if user is admin or student)
+    if (isAdmin() && notification.type === "admin_approval") {
+      // Re-fetch stats to update pending requests/approvals badges
+      if (document.getElementById("section-dashboard").classList.contains("active")) {
+        updateDashboardStats();
+      }
+    } else {
+      if (typeof loadStudentNotifCount === "function") {
+        loadStudentNotifCount();
+      }
+    }
+
+    // If currently viewing notifications, refresh the list
+    var notifSection = document.getElementById("section-notifications");
+    if (notifSection && notifSection.classList.contains("active")) {
+      if (typeof renderNotifications === "function") {
+        renderNotifications();
+      }
+    }
+  });
+})();

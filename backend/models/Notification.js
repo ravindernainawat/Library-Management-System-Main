@@ -44,10 +44,24 @@ notificationSchema.post("save", async function(doc) {
       const sent = await sendEmail(toEmail, "BookSphere Library Notification", doc.message);
       if (sent) {
         // Use updateOne to avoid triggering another save hook
-        await mongoose.model("Notification").updateOne({ _id: doc._id }, { emailSent: true });
+        await mongoose.model("Notification").updateOne({ _id: doc._id }, { emailSent: true, userEmail: toEmail });
+        doc.userEmail = toEmail; // Update locally for the socket emission
       }
     }
   }
+
+  // Emit the real-time notification
+  try {
+    const socketManager = require("../socket");
+    socketManager.emitNotification(doc);
+  } catch (err) {
+    console.error("[Socket.IO] Failed to emit notification:", err.message);
+  }
 });
+
+notificationSchema.index({ userEmail: 1 });
+notificationSchema.index({ userName: 1 });
+notificationSchema.index({ read: 1 });
+notificationSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Notification", notificationSchema);

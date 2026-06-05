@@ -6,4 +6,6 @@ const activityLogSchema = new mongoose.Schema({
   details: { type: String, required: true }
 }, { timestamps: true });
 
+activityLogSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("ActivityLog", activityLogSchema);

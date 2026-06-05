@@ -14,4 +14,9 @@ const exchangeSchema = new mongoose.Schema({
   completedAt: { type: Date, default: null }
 }, { timestamps: true });
 
+exchangeSchema.index({ fromUser: 1 });
+exchangeSchema.index({ toUser: 1 });
+exchangeSchema.index({ status: 1 });
+exchangeSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model("Exchange", exchangeSchema);

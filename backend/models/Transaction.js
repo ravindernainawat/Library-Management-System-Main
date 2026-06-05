@@ -22,4 +22,13 @@ const transactionSchema = new mongoose.Schema({
   renewed: { type: Boolean, default: false }
 }, { timestamps: true });
 
+transactionSchema.index({ userName: 1 });
+transactionSchema.index({ userId: 1 });
+transactionSchema.index({ status: 1 });
+transactionSchema.index({ createdAt: -1 });
+transactionSchema.index({ status: 1, dueDate: 1 });
+transactionSchema.index({ issueDate: 1 });
+transactionSchema.index({ returnDate: 1 });
+transactionSchema.index({ fineStatus: 1 });
+
 module.exports = mongoose.model("Transaction", transactionSchema);

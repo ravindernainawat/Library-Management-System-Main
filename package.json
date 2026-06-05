@@ -29,6 +29,7 @@
     "nodemailer": "^6.9.7",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.3",
+    "socket.io": "^4.8.3",
     "xss-clean": "^0.1.4"
   }
 }

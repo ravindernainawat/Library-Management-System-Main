@@ -2456,6 +2456,117 @@ body.light-mode .orb-2 {
   }
 }
 
+/* ============================================================
+   PAGINATION — Enterprise Grade
+   ============================================================ */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+.pagination-info {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.pagination-btn:hover:not(:disabled) {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+.pagination-btn svg {
+  flex-shrink: 0;
+}
+.pagination-page-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 6px 14px;
+  background: rgba(203,0,13,0.12);
+  border: 1px solid rgba(203,0,13,0.2);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+/* Limit selector */
+.pagination-limit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.pagination-limit-wrap select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Light-mode overrides */
+body.light-mode .pagination-bar {
+  background: rgba(255,255,255,0.7);
+  border-color: rgba(0,0,0,0.08);
+}
+body.light-mode .pagination-btn {
+  background: rgba(0,0,0,0.04);
+  color: #1a1a2e;
+  border-color: rgba(0,0,0,0.1);
+}
+body.light-mode .pagination-page-label {
+  color: #1a1a2e;
+}
+body.light-mode .pagination-limit-wrap select {
+  background: rgba(0,0,0,0.04);
+  color: #1a1a2e;
+}
+
+@media (max-width: 600px) {
+  .pagination-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .pagination-controls { width: 100%; justify-content: space-between; }
+  .pagination-btn { padding: 6px 12px; font-size: 0.78rem; }
+}
+
 /* end of style.css */
 
 

@@ -28,6 +28,13 @@ async function notifyReservationQueue(book, Reservation, Notification) {
 
 async function sendEmail(to, subject, html) {
   if (process.env.SMTP_ENABLED !== "true" || !process.env.SMTP_EMAIL) return false;
+  
+  // Prevent sending emails to dummy/test domains which cause bounces
+  if (/@(booksphere\.com|example\.com|test\.com)$/i.test(to)) {
+    console.log(`[Email] Skipped sending to dummy address: ${to}`);
+    return false;
+  }
+
   try {
     const nodemailer = require("nodemailer");
     const transporter = nodemailer.createTransport({ 

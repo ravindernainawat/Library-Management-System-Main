@@ -39,11 +39,56 @@ router.get("/auto-fetch/:isbn", async (req, res) => {
   }
 });
 
-// GET all books
+// GET all books — paginated
 router.get("/", async (req, res) => {
   try {
-    const books = await Book.find().sort({ createdAt: -1 });
-    res.json(books);
+    // Pagination params
+    let page  = Math.max(1, parseInt(req.query.page)  || 1);
+    let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    // If caller explicitly opts out of pagination (e.g. dropdowns/charts)
+    if (req.query.paginate === "false") {
+      const books = await Book.find().sort({ createdAt: -1 });
+      return res.json(books);
+    }
+
+    // Build filter
+    const filter = {};
+    if (req.query.search) {
+      const re = { $regex: req.query.search, $options: "i" };
+      filter.$or = [{ title: re }, { author: re }, { category: re }, { isbn: re }];
+    }
+    if (req.query.category)   filter.category   = req.query.category;
+    if (req.query.department) filter.department  = req.query.department;
+    if (req.query.branch)     filter.branch      = req.query.branch;
+
+    // Build sort
+    let sortObj = { createdAt: -1 };
+    switch (req.query.sort) {
+      case "title-asc":  sortObj = { title: 1 };  break;
+      case "title-desc": sortObj = { title: -1 }; break;
+      case "author-asc": sortObj = { author: 1 }; break;
+      case "author-desc":sortObj = { author: -1 };break;
+      case "avail-desc": sortObj = { availableCopies: -1 }; break;
+      case "avail-asc":  sortObj = { availableCopies: 1 };  break;
+    }
+
+    const totalRecords = await Book.countDocuments(filter);
+    const totalPages   = Math.ceil(totalRecords / limit) || 1;
+    page = Math.min(page, totalPages);
+    const skip = (page - 1) * limit;
+
+    const books = await Book.find(filter).sort(sortObj).skip(skip).limit(limit);
+
+    res.json({
+      success: true,
+      data: books,
+      pagination: {
+        page, limit, totalRecords, totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

@@ -23,4 +23,6 @@ const accountSchema = new mongoose.Schema({
   badges: { type: [String], default: [] }
 }, { timestamps: true });
 
+accountSchema.index({ role: 1, points: -1 });
+
 module.exports = mongoose.model("Account", accountSchema);
