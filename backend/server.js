@@ -55,6 +55,7 @@ app.use(compression());
 // ❸  CORS — locked to configured allowed origins, not wildcard
 //    Set ALLOWED_ORIGINS in .env as a comma-separated list, e.g.:
 //    ALLOWED_ORIGINS=http://localhost:5000,https://yourdomain.com
+//    Same-origin (frontend served by this server) is always allowed.
 // ─────────────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
@@ -62,12 +63,15 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow server-to-server / Postman (no origin) only in dev
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS blocked — origin '${origin}' not whitelisted.`));
+    // No origin = same-origin request (browser page served by this server) or server-to-server
+    if (!origin) return cb(null, true);
+    // Explicitly whitelisted origins
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    // Silently reject — do NOT throw an Error (Express renders thrown errors as HTML)
+    cb(null, false);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "Bypass-Tunnel-Reminder"],
   credentials: true,
 }));
 
@@ -854,7 +858,20 @@ try {
   console.log("  ✓ Auto-expiry check cron scheduled (every 10 minutes)");
 } catch(e) { console.log("  ⚠ node-cron not available, reminders and auto-expiry disabled"); }
 
-// ============ CATCH-ALL ============
+// ============ API 404 — return JSON, not HTML, for unmatched API routes ======
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ success: false, message: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
+// ============ GLOBAL JSON ERROR HANDLER — prevents Express HTML error pages ==
+app.use((err, req, res, _next) => {
+  console.error("  ✗ Unhandled error:", err.message);
+  if (!res.headersSent) {
+    res.status(err.status || 500).json({ success: false, message: err.message || "Internal server error." });
+  }
+});
+
+// ============ CATCH-ALL — serve frontend for non-API routes ==================
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "..", "frontend", "index.html")));
 
 // ============ START ============
