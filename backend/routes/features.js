@@ -235,7 +235,10 @@ router.put("/exchanges/:id/complete", async (req, res) => {
     const book = await Book.findById(exchange.bookId);
     
     // 1. Find toUser's active transaction (the one who HAS the book)
-    const senderUser = await User.findOne({ name: exchange.toUser });
+    // Prefer email lookup (unique) over name lookup (can have duplicates)
+    const senderUser = exchange.toUserEmail
+      ? await User.findOne({ contact: exchange.toUserEmail.toLowerCase() })
+      : await User.findOne({ name: exchange.toUser });
     const senderTx = await Transaction.findOne({ userId: senderUser?._id, bookId: exchange.bookId, status: "issued" });
     
     let copyId = null;
@@ -262,7 +265,10 @@ router.put("/exchanges/:id/complete", async (req, res) => {
     const now = new Date();
     const dueDate = new Date(now);
     dueDate.setDate(dueDate.getDate() + 14);
-    const receiverRecord = await User.findOne({ name: exchange.fromUser });
+    // Prefer email lookup for receiver too
+    const receiverRecord = exchange.fromUserEmail
+      ? await User.findOne({ contact: exchange.fromUserEmail.toLowerCase() })
+      : await User.findOne({ name: exchange.fromUser });
     const newTx = await Transaction.create({ bookId: exchange.bookId, userId: receiverRecord ? receiverRecord._id : null, copyId: copyId, userName: exchange.fromUser, userRole: "student", issueDate: now, dueDate, status: "issued", issuedVia: "exchange" });
 
     // 3. Update copy if applicable

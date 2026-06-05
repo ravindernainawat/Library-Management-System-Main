@@ -351,7 +351,7 @@ router.post("/pay-fine/:id", async (req, res) => {
     }
     
     tx.fineStatus = "paid";
-    tx.paymentMethod = "online_stripe_mock";
+    tx.paymentMethod = "online";
     tx.paymentDate = new Date();
     await tx.save();
     
@@ -378,7 +378,9 @@ router.put("/:id/renew", async (req, res) => {
     if (now > tx.dueDate) return res.status(400).json({ success: false, message: "Cannot renew an overdue book." });
     if (tx.renewed) return res.status(400).json({ success: false, message: "Book has already been renewed once." });
     
-    tx.dueDate.setDate(tx.dueDate.getDate() + 14);
+    const newDueDate = new Date(tx.dueDate);
+    newDueDate.setDate(newDueDate.getDate() + 14);
+    tx.dueDate = newDueDate;
     tx.renewed = true;
     await tx.save();
     

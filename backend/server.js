@@ -268,11 +268,13 @@ async function seedDatabase() {
   // The Owner can create Admin/Teacher/Student accounts from the dashboard after first login.
   if (await Account.countDocuments() === 0) {
     console.log("  → Seeding owner account...");
+    const ownerName = process.env.OWNER_NAME || "Admin";
+    const ownerEmail = (process.env.OWNER_EMAIL || "admin@booksphere.com").toLowerCase();
     const ownerPassword = process.env.OWNER_DEFAULT_PASSWORD || "Owner@1234";
     await Account.create(
-      { name: "Ravinder Nainawat", email: "ravindernainawat007@gmail.com", password: await hash(ownerPassword), role: "owner", status: "active" }
+      { name: ownerName, email: ownerEmail, password: await hash(ownerPassword), role: "owner", status: "active" }
     );
-    console.log("  ✓ Seeded owner account (ravindernainawat007@gmail.com)");
+    console.log(`  ✓ Seeded owner account (${ownerEmail})`);
     console.log("    ⚠ Change the default password immediately after first login!");
   }
 

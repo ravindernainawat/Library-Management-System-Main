@@ -25,13 +25,18 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
   try {
     const { email, role } = req.body;
     if (!email || !role) return res.status(400).json({ message: "Email and role required." });
+
+    // Owner is a unique seeded account — registration via this endpoint is forbidden
+    if (role === "owner") {
+      return res.status(403).json({ success: false, message: "Owner account cannot be created via registration. Contact system admin." });
+    }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ success: false, message: "Invalid mail or id." });
     }
     
-    if (role !== 'owner' && !email.toLowerCase().endsWith('@krmu.edu.in')) {
+    if (!email.toLowerCase().endsWith('@krmu.edu.in')) {
       return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
     }
 
@@ -52,11 +57,18 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
       `<h3>Registration Verification</h3><p>Your OTP for creating a BookSphere account is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
     
+    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
-       console.log(`\n  [DEV] Failed to send email to ${email}. Register OTP: ${otp}\n`);
+      console.log(`\n  [DEV] Failed to send email to ${email}. Register OTP: ${otp}\n`);
     }
 
-    res.json({ success: true, message: "OTP sent to your email. Please verify to create account." });
+    res.json({
+      success: true,
+      message: emailSent
+        ? "OTP sent to your email. Please verify to create account."
+        : "OTP generated (email delivery failed — check server console for OTP).",
+      ...(isDev && !emailSent ? { devOtp: otp } : {})
+    });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -65,6 +77,11 @@ router.post("/register", validateRegister, async (req, res) => {
   try {
     const { name, email, password, role, otp } = req.body;
     if (!name || !email || !password || !role || !otp) return res.status(400).json({ message: "All fields including OTP are required." });
+
+    // Owner is a unique seeded account — registration via this endpoint is forbidden
+    if (role === "owner") {
+      return res.status(403).json({ success: false, message: "Owner account cannot be created via registration. Contact system admin." });
+    }
     
     const existing = await Account.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ message: "Email already registered. Please login instead." });
@@ -147,11 +164,19 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
       `<h3>Login Verification</h3><p>Your OTP for login is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
     
+    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
-       console.log(`\n  [DEV] Failed to send email to ${account.email}. Login OTP: ${otp}\n`);
+      console.log(`\n  [DEV] Failed to send email to ${account.email}. Login OTP: ${otp}\n`);
     }
 
-    res.json({ success: true, requiresOtp: true, message: "OTP sent to your email. Please verify to login." });
+    res.json({
+      success: true,
+      requiresOtp: true,
+      message: emailSent
+        ? "OTP sent to your email. Please verify to login."
+        : "OTP generated (email delivery failed — check server console for OTP).",
+      ...(isDev && !emailSent ? { devOtp: otp } : {})
+    });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -209,11 +234,18 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
       `<h3>Password Reset Verification</h3><p>Your OTP to reset your password is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
 
+    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
       console.log(`\n  [DEV] Failed to send email to ${account.email}. Reset OTP: ${otp}\n`);
     }
 
-    res.json({ success: true, message: "Reset OTP sent to your email. Please verify to change your password." });
+    res.json({
+      success: true,
+      message: emailSent
+        ? "Reset OTP sent to your email. Please verify to change your password."
+        : "OTP generated (email delivery failed — check server console for OTP).",
+      ...(isDev && !emailSent ? { devOtp: otp } : {})
+    });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -343,11 +375,11 @@ router.put("/profile", verifyToken, async (req, res) => {
     if (contactNumber !== undefined) account.contactNumber = contactNumber;
     if (profilePicture !== undefined) account.profilePicture = profilePicture;
     await account.save();
-    
-    // Also update contact in User model if applicable
-    if (contactNumber) {
-      await User.findOneAndUpdate({ contact: account.email }, { contact: contactNumber });
-    }
+
+    // NOTE: We intentionally do NOT update User.contact here.
+    // User.contact stores the account email and is used as the primary key
+    // to join User ↔ Account records. Overwriting it with a phone number
+    // would break the admin panel's user lookup and status display.
     
     res.json({ success: true, profile: { ...account.toObject(), password: "" } });
   } catch (err) {
