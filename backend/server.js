@@ -36,7 +36,7 @@ const ActivityLog= require("./models/ActivityLog");
 const BookCopy   = require("./models/BookCopy");
 const Reservation= require("./models/Reservation");
 const Exchange   = require("./models/Exchange");
-const { logActivity, calcFine } = require("./utils");
+const { logActivity, calcFine, verifySMTP } = require("./utils");
 
 // Routes
 const authRoutes         = require("./routes/auth");
@@ -885,7 +885,7 @@ app.get("*", (req, res) => res.sendFile(path.join(__dirname, "..", "frontend", "
 
 // ============ START ============
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log("");
   console.log("  ╔══════════════════════════════════════╗");
   console.log("  ║   BookSphere Server v2.0             ║");
@@ -893,6 +893,9 @@ const server = app.listen(PORT, () => {
   console.log("  ║   All features active                ║");
   console.log("  ╚══════════════════════════════════════╝");
   console.log("");
+  
+  // Verify SMTP at startup — logs immediately if email config is broken
+  await verifySMTP();
 });
 
 // Initialize Socket.IO
