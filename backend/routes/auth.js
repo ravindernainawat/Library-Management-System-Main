@@ -57,7 +57,6 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
       `<h3>Registration Verification</h3><p>Your OTP for creating a BookSphere account is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
     
-    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
       console.log(`\n  [DEV] Failed to send email to ${email}. Register OTP: ${otp}\n`);
     }
@@ -67,7 +66,7 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
       message: emailSent
         ? "OTP sent to your email. Please verify to create account."
         : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(isDev && !emailSent ? { devOtp: otp } : {})
+      ...(!emailSent ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -164,7 +163,6 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
       `<h3>Login Verification</h3><p>Your OTP for login is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
     
-    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
       console.log(`\n  [DEV] Failed to send email to ${account.email}. Login OTP: ${otp}\n`);
     }
@@ -175,7 +173,7 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
       message: emailSent
         ? "OTP sent to your email. Please verify to login."
         : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(isDev && !emailSent ? { devOtp: otp } : {})
+      ...(!emailSent ? { devOtp: otp } : {})
     });
   } catch (err) { if (!res.headersSent) res.status(500).json({ success: false, message: err.message }); }
 });
@@ -234,7 +232,6 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
       `<h3>Password Reset Verification</h3><p>Your OTP to reset your password is: <b style="font-size:1.2rem;letter-spacing:2px;">${otp}</b></p><p>This OTP will expire in 10 minutes.</p>`
     );
 
-    const isDev = process.env.NODE_ENV !== "production";
     if (!emailSent) {
       console.log(`\n  [DEV] Failed to send email to ${account.email}. Reset OTP: ${otp}\n`);
     }
@@ -244,7 +241,7 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
       message: emailSent
         ? "Reset OTP sent to your email. Please verify to change your password."
         : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(isDev && !emailSent ? { devOtp: otp } : {})
+      ...(!emailSent ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
