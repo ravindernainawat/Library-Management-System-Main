@@ -36,12 +36,14 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid mail or id." });
     }
     
-    if (!email.toLowerCase().endsWith('@krmu.edu.in')) {
+    const isCollegeEmail = email.toLowerCase().endsWith('@krmu.edu.in');
+    const isOwnerEmail = email.toLowerCase() === 'ravindernainawat007@gmail.com';
+    if (!isCollegeEmail && !isOwnerEmail) {
       return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
     }
 
-    const existing = await Account.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(400).json({ message: "Email already registered. Please login instead." });
+    const existing = await Account.findOne({ email: email.toLowerCase(), role });
+    if (existing) return res.status(400).json({ message: `Email already registered as ${role}. Please login instead.` });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
@@ -82,8 +84,8 @@ router.post("/register", validateRegister, async (req, res) => {
       return res.status(403).json({ success: false, message: "Owner account cannot be created via registration. Contact system admin." });
     }
     
-    const existing = await Account.findOne({ email: email.toLowerCase() });
-    if (existing) return res.status(400).json({ message: "Email already registered. Please login instead." });
+    const existing = await Account.findOne({ email: email.toLowerCase(), role });
+    if (existing) return res.status(400).json({ message: `Email already registered as ${role}. Please login instead.` });
     
     // Verify OTP
     const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
