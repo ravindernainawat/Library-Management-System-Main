@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const accountSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true },
+  email: { type: String, required: true, lowercase: true },
   password: { type: String },
   role: { type: String, enum: ["owner", "admin", "teacher", "student"], required: true },
   status: { type: String, enum: ["active", "pending", "blocked"], default: "active" },
@@ -23,6 +23,7 @@ const accountSchema = new mongoose.Schema({
   badges: { type: [String], default: [] }
 }, { timestamps: true });
 
+accountSchema.index({ email: 1, role: 1 }, { unique: true });
 accountSchema.index({ role: 1, points: -1 });
 
 module.exports = mongoose.model("Account", accountSchema);
