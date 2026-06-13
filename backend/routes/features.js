@@ -133,10 +133,19 @@ router.post("/exchanges", async (req, res) => {
       return res.status(403).json({ success: false, message: "Forbidden. You can only initiate exchanges from your own account." });
     }
 
-    const existing = await Exchange.findOne({ fromUser, bookId, status: { $in: ["pending","accepted"] } });
+    // Resolve true bookId if the mock ID was sent
+    let finalBookId = bookId;
+    if (bookId === "000000000000000000000001") {
+      const book = await Book.findOne({ title: { $regex: new RegExp(`^${bookTitle.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } });
+      if (book) {
+        finalBookId = book._id;
+      }
+    }
+
+    const existing = await Exchange.findOne({ fromUser, bookId: finalBookId, status: { $in: ["pending","accepted"] } });
     if (existing) return res.status(400).json({ message: "You already have an active exchange request for this book." });
 
-    const exchange = await Exchange.create({ fromUser, fromUserEmail: fromUserEmail||"", toUser, toUserEmail: toUserEmail||"", bookId, bookTitle, campusLocation: campusLocation||"", message: message||"", status: "pending" });
+    const exchange = await Exchange.create({ fromUser, fromUserEmail: fromUserEmail||"", toUser, toUserEmail: toUserEmail||"", bookId: finalBookId, bookTitle, campusLocation: campusLocation||"", message: message||"", status: "pending" });
 
     await Notification.create({ userName: toUser, userEmail: toUserEmail||"", type: "exchange_request", message: `${fromUser} wants to exchange "${bookTitle}" with you. Location: ${campusLocation||"TBD"}.` });
     logActivity("Exchange Request", fromUser, `Sent exchange request to ${toUser} for "${bookTitle}"`);
@@ -454,6 +463,7 @@ router.get("/borrowers", async (req, res) => {
     const results = txs.map(t => {
       const book = books.find(b => b._id.toString() === t.bookId.toString());
       return {
+        bookId: t.bookId,
         userName: t.userName,
         bookTitle: book ? book.title : "Unknown",
         dueDate: t.dueDate,
