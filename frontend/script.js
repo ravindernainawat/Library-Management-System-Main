@@ -2201,30 +2201,44 @@ function lookupBorrowers() {
             '<strong style="color:var(--text-primary);">' + r.userName + (isMe ? ' (You)' : '') + '</strong>' +
             '<div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">📚 ' + r.bookTitle + ' · Due: ' + dueStr + '</div>' +
           '</div>' +
-          (isMe ? '' : '<button class="btn btn-sm" style="background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.2)" onclick="selectBorrowerForExchange(\'' + r.userName.replace(/'/g, "\\'") + '\', \'' + r.bookTitle.replace(/'/g, "\\'") + '\')">Exchange ↗</button>') +
+          (isMe ? '' : '<button class="btn btn-sm" style="background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.2)" onclick="selectBorrowerForExchange(\'' + r.userName.replace(/'/g, "\\'") + '\', \'' + r.bookTitle.replace(/'/g, "\\'") + '\', \'' + r.bookId + '\')">Exchange ↗</button>') +
         '</div>';
       }).join("");
     });
   }, 400);
 }
 
-function selectBorrowerForExchange(userName, bookTitle) {
+function selectBorrowerForExchange(userName, bookTitle, bookId) {
   document.getElementById("exchange-to-user").value = userName;
-  document.getElementById("exchange-book-title").value = bookTitle;
+  var titleEl = document.getElementById("exchange-book-title");
+  titleEl.value = bookTitle;
+  titleEl.dataset.bookId = bookId || "";
   showToast("Selected " + userName + " for exchange!", "info");
 }
 
 function sendExchangeRequest() {
   var user = getCurrentUser();
-  var bookTitle = document.getElementById("exchange-book-title").value.trim();
+  var titleEl = document.getElementById("exchange-book-title");
+  var bookTitle = titleEl.value.trim();
+  var bookId = titleEl.dataset.bookId || "000000000000000000000001";
   var toUser = document.getElementById("exchange-to-user").value.trim();
   var toEmail = document.getElementById("exchange-to-email").value.trim();
   var location = document.getElementById("exchange-location").value.trim();
   var msg = document.getElementById("exchange-message").value.trim();
   if (!bookTitle || !toUser) { showToast("Book title and recipient required", "error"); return; }
-  apiPost("/exchanges", { fromUser: user.name, fromUserEmail: user.email||"", toUser: toUser, toUserEmail: toEmail, bookId: "000000000000000000000001", bookTitle: bookTitle, campusLocation: location, message: msg })
+  apiPost("/exchanges", { fromUser: user.name, fromUserEmail: user.email||"", toUser: toUser, toUserEmail: toEmail, bookId: bookId, bookTitle: bookTitle, campusLocation: location, message: msg })
     .then(function(d) {
-      if (d.success) { showToast("Exchange request sent to " + toUser, "success"); ["exchange-book-title","exchange-to-user","exchange-to-email","exchange-location","exchange-message"].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ""; }); renderExchanges(); }
+      if (d.success) {
+        showToast("Exchange request sent to " + toUser, "success");
+        ["exchange-book-title","exchange-to-user","exchange-to-email","exchange-location","exchange-message"].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) {
+            el.value = "";
+            if (id === "exchange-book-title") delete el.dataset.bookId;
+          }
+        });
+        renderExchanges();
+      }
       else showToast(d.message, "error");
     });
 }

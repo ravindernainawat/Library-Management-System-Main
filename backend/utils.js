@@ -41,7 +41,10 @@ async function sendEmail(to, subject, html) {
       host: 'smtp.gmail.com',
       port: 465,
       secure: true,
-      auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD } 
+      auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+      connectionTimeout: 5000, // 5 seconds connection limit
+      greetingTimeout: 5000,   // 5 seconds greeting limit
+      socketTimeout: 10000     // 10 seconds socket limit
     });
     
     // Strip HTML for a plain text fallback (helps with Outlook spam filters)

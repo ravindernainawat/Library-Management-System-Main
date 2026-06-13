@@ -177,7 +177,7 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
         : "OTP generated (email delivery failed — check server console for OTP).",
       ...(isDev && !emailSent ? { devOtp: otp } : {})
     });
-  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+  } catch (err) { if (!res.headersSent) res.status(500).json({ success: false, message: err.message }); }
 });
 
 // VERIFY LOGIN OTP

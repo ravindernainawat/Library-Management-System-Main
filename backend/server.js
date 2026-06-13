@@ -1,11 +1,19 @@
-// Force Google DNS — bypasses college/network blocks on mongodb.net SRV records
-require("dns").setServers(["8.8.8.8", "8.8.4.4"]);
+require("dotenv").config();
+
+// Force Google DNS — only if explicitly enabled (useful for bypassing college/network blocks locally)
+if (process.env.FORCE_GOOGLE_DNS === "true") {
+  try {
+    require("dns").setServers(["8.8.8.8", "8.8.4.4"]);
+    console.log("  ✓ Google DNS configured for local network bypass");
+  } catch (e) {
+    console.warn("  ⚠ Failed to set DNS servers:", e.message);
+  }
+}
 
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const path = require("path");
-require("dotenv").config();
 const mongoSanitize = require("express-mongo-sanitize");
 const rateLimit = require("express-rate-limit");
 const slowDown = require("express-slow-down");
@@ -57,9 +65,9 @@ app.use(compression());
 //    ALLOWED_ORIGINS=http://localhost:5000,https://yourdomain.com
 //    Same-origin (frontend served by this server) is always allowed.
 // ─────────────────────────────────────────────────────────────────────────────
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-  : ["http://localhost:5000", "http://localhost:3000", "http://127.0.0.1:5000"];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.CORS_ALLOWED_DOMAINS)
+  ? (process.env.ALLOWED_ORIGINS || process.env.CORS_ALLOWED_DOMAINS).split(',').map(o => o.trim())
+  : ["https://booksphere.com", "https://mobile.booksphere.app"];
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -208,7 +216,8 @@ async function connectDB() {
     console.log("  ✓ Connected to MongoDB");
     await seedDatabase();
   } catch (err) {
-    console.log("  ⚠ External MongoDB not found, using persistent local DB...");
+    console.log("  ⚠ External MongoDB connection failed:", err.message);
+    console.log("  ⚠ Falling back to persistent local DB...");
     try {
       const { MongoMemoryServer } = require("mongodb-memory-server");
 
