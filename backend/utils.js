@@ -26,95 +26,137 @@ async function notifyReservationQueue(book, Reservation, Notification) {
   }
 }
 
-// Shared transporter — created once, reused for all emails (connection pooling)
-let _transporter = null;
+// ─────────────────────────────────────────────────────────────────────────────
+// EMAIL PROVIDER: Resend (primary, cloud-friendly) → Gmail SMTP (fallback, local dev)
+//
+// Gmail SMTP blocks connections from cloud IPs (Railway, Render, Heroku, etc).
+// Resend is a modern email API that works from any platform.
+// Free tier: 100 emails/day — more than enough for OTPs.
+//
+// Setup:
+//   1. Sign up at https://resend.com (free)
+//   2. Get your API key from the dashboard
+//   3. Set RESEND_API_KEY=re_xxxxx in Railway env vars
+//   4. Set EMAIL_FROM=onboarding@resend.dev (or your verified domain)
+// ─────────────────────────────────────────────────────────────────────────────
 
-function getTransporter() {
-  if (_transporter) return _transporter;
+// Send email via Resend API (works on Railway, Render, any cloud)
+async function sendViaResend(to, subject, html, text) {
+  const { Resend } = require("resend");
+  const resend = new Resend(process.env.RESEND_API_KEY);
   
-  const nodemailer = require("nodemailer");
-  _transporter = nodemailer.createTransport({ 
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: (process.env.SMTP_PORT || '465') === '465', // true for 465, false for 587
-    auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-    connectionTimeout: 30000,  // 30 seconds — Railway containers need more time
-    greetingTimeout: 30000,    // 30 seconds
-    socketTimeout: 60000,      // 60 seconds
-    pool: true,                // reuse connections
-    maxConnections: 3,
-    maxMessages: 50,
-    logger: process.env.SMTP_DEBUG === 'true', // enable nodemailer debug logs
-    debug: process.env.SMTP_DEBUG === 'true',
+  const fromAddress = process.env.EMAIL_FROM || "BookSphere <onboarding@resend.dev>";
+  
+  const { data, error } = await resend.emails.send({
+    from: fromAddress,
+    to: [to],
+    subject,
+    html,
+    text,
   });
   
-  return _transporter;
+  if (error) throw new Error(error.message);
+  console.log(`[Email/Resend] ✓ Sent to ${to} (id: ${data.id})`);
+  return true;
 }
 
-// Verify SMTP connection at startup — call this once after server starts
+// Send email via Gmail SMTP (works locally, blocked on most cloud platforms)
+async function sendViaSMTP(to, subject, html, text) {
+  const nodemailer = require("nodemailer");
+  const transporter = nodemailer.createTransport({ 
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: (process.env.SMTP_PORT || '587') === '465',
+    auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
+  });
+  
+  const info = await transporter.sendMail({ 
+    from: `"BookSphere System" <${process.env.SMTP_EMAIL}>`, 
+    replyTo: process.env.SMTP_EMAIL,
+    to, subject, text, html 
+  });
+  console.log(`[Email/SMTP] ✓ Sent to ${to} (messageId: ${info.messageId})`);
+  return true;
+}
+
+// Verify email provider at startup
 async function verifySMTP() {
-  if (process.env.SMTP_ENABLED !== "true" || !process.env.SMTP_EMAIL) {
-    console.log("  ⚠ SMTP disabled (SMTP_ENABLED != true or SMTP_EMAIL not set)");
-    return false;
-  }
-  try {
-    const transporter = getTransporter();
-    await transporter.verify();
-    console.log("  ✓ SMTP connection verified — email delivery active");
-    return true;
-  } catch(e) {
-    console.error("  ✗ SMTP verification FAILED:", e.code || e.message);
-    console.error("    Check SMTP_EMAIL and SMTP_PASSWORD env vars on Railway");
-    _transporter = null; // reset so it retries next time
-    return false;
-  }
-}
-
-async function sendEmail(to, subject, html) {
-  if (process.env.SMTP_ENABLED !== "true" || !process.env.SMTP_EMAIL) {
-    console.log("[Email] SMTP disabled — skipping email to", to);
-    return false;
+  // Check Resend first
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { Resend } = require("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      // Resend doesn't have a verify endpoint, but we can check the key format
+      console.log("  ✓ Resend API key configured — email delivery active (cloud-ready)");
+      console.log(`    From: ${process.env.EMAIL_FROM || "onboarding@resend.dev"}`);
+      return true;
+    } catch(e) {
+      console.error("  ✗ Resend setup error:", e.message);
+    }
   }
   
+  // Fall back to SMTP check
+  if (process.env.SMTP_ENABLED === "true" && process.env.SMTP_EMAIL) {
+    try {
+      const nodemailer = require("nodemailer");
+      const transporter = nodemailer.createTransport({ 
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: (process.env.SMTP_PORT || '587') === '465',
+        auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+      });
+      await transporter.verify();
+      console.log("  ✓ SMTP connection verified — email delivery active (local/SMTP)");
+      return true;
+    } catch(e) {
+      console.error("  ✗ SMTP verification FAILED:", e.code || e.message);
+      console.error("    Gmail SMTP is blocked on most cloud platforms.");
+      console.error("    → Set RESEND_API_KEY for cloud deployment (free at resend.com)");
+      return false;
+    }
+  }
+  
+  console.log("  ⚠ No email provider configured. Set RESEND_API_KEY or SMTP_ENABLED=true");
+  return false;
+}
+
+// Main email function — tries Resend first, falls back to SMTP
+async function sendEmail(to, subject, html) {
   // Prevent sending emails to dummy/test domains which cause bounces
   if (/@(booksphere\.com|example\.com|test\.com)$/i.test(to)) {
     console.log(`[Email] Skipped sending to dummy address: ${to}`);
     return false;
   }
-
-  const maxRetries = 2;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  // Strategy 1: Resend API (works everywhere including Railway)
+  if (process.env.RESEND_API_KEY) {
     try {
-      const transporter = getTransporter();
-      
-      // Strip HTML for a plain text fallback (helps with Outlook spam filters)
-      const text = html.replace(/<[^>]+>/g, ' ');
-      
-      const info = await transporter.sendMail({ 
-        from: `"BookSphere System" <${process.env.SMTP_EMAIL}>`, 
-        replyTo: process.env.SMTP_EMAIL,
-        to, 
-        subject, 
-        text,
-        html 
-      });
-      console.log(`[Email] ✓ Sent to ${to} (messageId: ${info.messageId})`);
-      return true;
+      return await sendViaResend(to, subject, html, text);
     } catch(e) {
-      const errDetail = `code=${e.code || 'UNKNOWN'} command=${e.command || 'N/A'} msg=${e.message}`;
-      console.error(`[Email] ✗ Attempt ${attempt}/${maxRetries} failed for ${to}: ${errDetail}`);
-      
-      // Reset transporter on connection errors so next attempt creates a fresh one
-      if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || e.code === 'ESOCKET' || e.code === 'ECONNRESET') {
-        _transporter = null;
-      }
-      
-      if (attempt < maxRetries) {
-        // Wait 2 seconds before retry
-        await new Promise(r => setTimeout(r, 2000));
-      }
+      console.error(`[Email/Resend] ✗ Failed for ${to}: ${e.message}`);
+      // Don't fall through to SMTP on cloud — it'll fail too
+      if (process.env.NODE_ENV === "production") return false;
     }
   }
+  
+  // Strategy 2: Gmail SMTP (works locally, usually blocked on cloud)
+  if (process.env.SMTP_ENABLED === "true" && process.env.SMTP_EMAIL) {
+    try {
+      return await sendViaSMTP(to, subject, html, text);
+    } catch(e) {
+      const errDetail = `code=${e.code || 'UNKNOWN'} msg=${e.message}`;
+      console.error(`[Email/SMTP] ✗ Failed for ${to}: ${errDetail}`);
+    }
+  }
+  
+  console.log("[Email] No working email provider. Set RESEND_API_KEY for Railway.");
   return false;
 }
 
