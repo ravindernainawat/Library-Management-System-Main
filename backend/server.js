@@ -69,19 +69,61 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.CORS_ALLOWED
   ? (process.env.ALLOWED_ORIGINS || process.env.CORS_ALLOWED_DOMAINS).split(',').map(o => o.trim())
   : ["https://booksphere.com", "https://mobile.booksphere.app"];
 
-app.use(cors({
-  origin: (origin, cb) => {
-    // No origin = same-origin request (browser page served by this server) or server-to-server
-    if (!origin) return cb(null, true);
-    // Explicitly whitelisted origins
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    // Silently reject — do NOT throw an Error (Express renders thrown errors as HTML)
-    cb(null, false);
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Bypass-Tunnel-Reminder"],
-  credentials: true,
-}));
+const corsOptionsDelegate = (req, cb) => {
+  const origin = req.header('Origin');
+  let corsOptions = {
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "Bypass-Tunnel-Reminder"],
+    credentials: true,
+  };
+
+  // No origin = same-origin request (browser page served by this server) or server-to-server
+  if (!origin) {
+    corsOptions.origin = true;
+    return cb(null, corsOptions);
+  }
+
+  // Same-origin check: compare origin URL host with request Host header
+  try {
+    const originUrl = new URL(origin);
+    const requestHost = req.get('host'); // e.g. "booksphere.xyz" or "localhost:5000"
+    if (originUrl.host === requestHost) {
+      corsOptions.origin = true;
+      return cb(null, corsOptions);
+    }
+  } catch (err) {
+    // ignore parsing errors
+  }
+
+  // Explicitly whitelisted origins
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    corsOptions.origin = true;
+    return cb(null, corsOptions);
+  }
+
+  // Development helper: auto-allow localhost/127.0.0.1/local IPs if not in production
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const originUrl = new URL(origin);
+      if (
+        originUrl.hostname === 'localhost' ||
+        originUrl.hostname === '127.0.0.1' ||
+        originUrl.hostname.startsWith('192.168.') ||
+        originUrl.hostname.startsWith('10.')
+      ) {
+        corsOptions.origin = true;
+        return cb(null, corsOptions);
+      }
+    } catch (err) {}
+  }
+
+  // Log rejection to assist with troubleshooting custom domains / CORS configurations
+  console.warn(`[CORS Blocked] Request from origin "${origin}" rejected. Allowed origins in .env:`, ALLOWED_ORIGINS);
+  corsOptions.origin = false;
+  cb(null, corsOptions);
+};
+
+app.use(cors(corsOptionsDelegate));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ❹  BODY SIZE LIMITS — prevent memory/CPU exhaustion from huge payloads
@@ -209,42 +251,180 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
 const fs = require("fs");
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/booksphere";
 let mongod = null; // keep reference for graceful shutdown
+let dbStatus = { connected: false, type: "none", lastError: null, retries: 0 }; // track connection state
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Atlas-specific error diagnostics — helps devs fix connection issues fast
+// ─────────────────────────────────────────────────────────────────────────────
+function diagnoseAtlasError(err) {
+  const msg = (err.message || "").toLowerCase();
+  const code = err.code || err.codeName || "";
+
+  if (msg.includes("querysrv") || msg.includes("getaddrinfo") || msg.includes("enotfound")) {
+    return {
+      cause: "DNS_RESOLUTION_FAILED",
+      hint: "Cannot resolve MongoDB Atlas hostname. Check:\n" +
+            "    1. Your internet connection\n" +
+            "    2. The cluster name in MONGODB_URI is correct\n" +
+            "    3. If on college/corporate network, DNS may be blocked → set FORCE_GOOGLE_DNS=true"
+    };
+  }
+  if (msg.includes("authentication failed") || msg.includes("auth") || code === "AuthenticationFailed") {
+    return {
+      cause: "AUTH_FAILED",
+      hint: "MongoDB authentication failed. Check:\n" +
+            "    1. Database username and password in MONGODB_URI\n" +
+            "    2. The user has readWrite permissions on the database\n" +
+            "    3. Password doesn't contain unescaped special characters (use encodeURIComponent)"
+    };
+  }
+  if (msg.includes("whitelist") || msg.includes("ip") || msg.includes("connection timed out") || msg.includes("timed out after") || msg.includes("serverselectiontimeout")) {
+    return {
+      cause: "IP_NOT_WHITELISTED_OR_TIMEOUT",
+      hint: "Connection timed out. Most likely cause:\n" +
+            "    1. Your IP is NOT whitelisted in Atlas → Go to Atlas > Network Access > Add Current IP\n" +
+            "    2. For deployment, add 0.0.0.0/0 (allow all) in Atlas Network Access\n" +
+            "    3. Atlas free tier cluster may be paused → check Atlas dashboard\n" +
+            "    4. Firewall/VPN blocking port 27017"
+    };
+  }
+  if (msg.includes("ssl") || msg.includes("tls") || msg.includes("certificate")) {
+    return {
+      cause: "TLS_ERROR",
+      hint: "SSL/TLS handshake failed. Check:\n" +
+            "    1. Node.js version supports TLS 1.2+ (required by Atlas)\n" +
+            "    2. System clock is accurate (certificate validation fails with wrong time)"
+    };
+  }
+  return {
+    cause: "UNKNOWN",
+    hint: "Unexpected error. Full message: " + err.message
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retry-aware connection — retries 3 times with exponential backoff
+// Atlas free tier clusters can sleep and take 30+ seconds to wake up
+// ─────────────────────────────────────────────────────────────────────────────
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 2000; // 2s, 4s, 8s backoff
 
 async function connectDB() {
-  try {
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 15000 });
-    console.log("  ✓ Connected to MongoDB");
-    await seedDatabase();
-  } catch (err) {
-    console.log("  ⚠ External MongoDB connection failed:", err.message);
-    console.log("  ⚠ Falling back to persistent local DB...");
+  // Attempt Atlas/external connection with retries
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const { MongoMemoryServer } = require("mongodb-memory-server");
-
-      // Create a persistent data directory inside the backend folder
-      const dbPath = path.join(__dirname, "data", "db");
-      if (!fs.existsSync(dbPath)) {
-        fs.mkdirSync(dbPath, { recursive: true });
-        console.log("  → Created data directory:", dbPath);
-      }
-
-      // Start MongoMemoryServer with persistent disk storage (WiredTiger)
-      mongod = await MongoMemoryServer.create({
-        instance: {
-          dbPath: dbPath,
-          storageEngine: "wiredTiger"  // persistent storage instead of ephemeral
-        }
+      dbStatus.retries = attempt;
+      console.log(`  → MongoDB connection attempt ${attempt}/${MAX_RETRIES}...`);
+      
+      await mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 30000,   // 30s — allows sleeping Atlas clusters to wake
+        connectTimeoutMS: 30000,           // 30s socket connect timeout
+        socketTimeoutMS: 45000,            // 45s socket inactivity timeout
+        heartbeatFrequencyMS: 10000,       // check server every 10s
+        retryWrites: true,                 // auto-retry failed writes
+        retryReads: true,                  // auto-retry failed reads
       });
 
-      await mongoose.connect(mongod.getUri());
-      console.log("  ✓ Persistent Local MongoDB started (data saved to ./data/db)");
-      console.log("  ✓ Data will survive restarts and reloads");
-
-      // Only seed if this is a fresh database (no accounts exist yet)
+      dbStatus = { connected: true, type: "atlas", lastError: null, retries: attempt };
+      console.log("  ✓ Connected to MongoDB Atlas (attempt " + attempt + ")");
       await seedDatabase();
-    } catch (e) { console.error("  ✗ DB failed:", e.message); process.exit(1); }
+      return; // success — exit function
+    } catch (err) {
+      const diag = diagnoseAtlasError(err);
+      console.log(`  ⚠ Attempt ${attempt}/${MAX_RETRIES} failed — ${diag.cause}`);
+      console.log("    " + diag.hint.split("\n").join("\n    "));
+      dbStatus.lastError = diag;
+
+      // Don't retry on auth failures — they won't fix themselves
+      if (diag.cause === "AUTH_FAILED") {
+        console.log("  ✗ Authentication error — skipping remaining retries");
+        break;
+      }
+
+      // Wait before retrying (exponential backoff: 2s, 4s, 8s)
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`  ⏳ Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  // All Atlas retries exhausted — fall back to local persistent DB
+  console.log("  ⚠ All Atlas connection attempts failed. Falling back to persistent local DB...");
+  try {
+    const { MongoMemoryServer } = require("mongodb-memory-server");
+
+    // Create a persistent data directory inside the backend folder
+    const dbPath = path.join(__dirname, "data", "db");
+    if (!fs.existsSync(dbPath)) {
+      fs.mkdirSync(dbPath, { recursive: true });
+      console.log("  → Created data directory:", dbPath);
+    }
+
+    // Start MongoMemoryServer with persistent disk storage (WiredTiger)
+    mongod = await MongoMemoryServer.create({
+      instance: {
+        dbPath: dbPath,
+        storageEngine: "wiredTiger"  // persistent storage instead of ephemeral
+      }
+    });
+
+    await mongoose.connect(mongod.getUri());
+    dbStatus = { connected: true, type: "local", lastError: null, retries: MAX_RETRIES };
+    console.log("  ✓ Persistent Local MongoDB started (data saved to ./data/db)");
+    console.log("  ✓ Data will survive restarts and reloads");
+
+    // Only seed if this is a fresh database (no accounts exist yet)
+    await seedDatabase();
+  } catch (e) {
+    dbStatus = { connected: false, type: "none", lastError: e.message, retries: MAX_RETRIES };
+    console.error("  ✗ All DB connections failed:", e.message);
+    console.error("  ✗ Server cannot start without a database. Exiting.");
+    process.exit(1);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connection event monitoring — logs drops and auto-reconnections
+// ─────────────────────────────────────────────────────────────────────────────
+mongoose.connection.on("connected", () => {
+  console.log("  ✓ Mongoose connected");
+  dbStatus.connected = true;
+});
+mongoose.connection.on("disconnected", () => {
+  console.warn("  ⚠ Mongoose disconnected — queries will queue until reconnection");
+  dbStatus.connected = false;
+});
+mongoose.connection.on("reconnected", () => {
+  console.log("  ✓ Mongoose reconnected");
+  dbStatus.connected = true;
+});
+mongoose.connection.on("error", (err) => {
+  console.error("  ✗ Mongoose connection error:", err.message);
+  dbStatus.lastError = err.message;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Health Check Endpoint — allows frontend/load-balancers to verify DB status
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/api/health", (req, res) => {
+  const mongoState = mongoose.connection.readyState;
+  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  const stateMap = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
+  const isHealthy = mongoState === 1;
+
+  res.status(isHealthy ? 200 : 503).json({
+    success: isHealthy,
+    status: isHealthy ? "healthy" : "degraded",
+    database: {
+      state: stateMap[mongoState] || "unknown",
+      type: dbStatus.type,    // "atlas" or "local"
+      connected: isHealthy,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Graceful shutdown — properly stop embedded MongoDB to avoid data corruption
 async function gracefulShutdown(signal) {

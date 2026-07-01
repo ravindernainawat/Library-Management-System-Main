@@ -7,9 +7,36 @@ module.exports = {
   init: (server) => {
     io = socketIo(server, {
       cors: {
-        origin: process.env.ALLOWED_ORIGINS 
-          ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-          : ["http://localhost:5000", "http://localhost:3000", "http://127.0.0.1:5000"],
+        origin: (origin, callback) => {
+          // No origin = same-origin or non-browser client
+          if (!origin) return callback(null, true);
+          
+          const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+            ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+            : ["http://localhost:5000", "http://localhost:3000", "http://127.0.0.1:5000"];
+
+          if (ALLOWED_ORIGINS.includes(origin)) {
+            return callback(null, true);
+          }
+
+          // Development/local helper fallback
+          if (process.env.NODE_ENV !== 'production') {
+            try {
+              const url = new URL(origin);
+              if (
+                url.hostname === 'localhost' ||
+                url.hostname === '127.0.0.1' ||
+                url.hostname.startsWith('192.168.') ||
+                url.hostname.startsWith('10.')
+              ) {
+                return callback(null, true);
+              }
+            } catch (e) {}
+          }
+
+          console.warn(`[Socket CORS Blocked] Handshake from origin "${origin}" rejected. Allowed origins in .env:`, ALLOWED_ORIGINS);
+          callback(null, false);
+        },
         methods: ["GET", "POST"]
       }
     });

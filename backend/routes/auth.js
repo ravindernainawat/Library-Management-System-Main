@@ -63,12 +63,15 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
       console.log(`\n  [DEV] Failed to send email to ${email}. Register OTP: ${otp}\n`);
     }
 
+    const isDev = process.env.NODE_ENV !== "production";
+    const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
+    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
     res.json({
       success: true,
       message: emailSent
         ? "OTP sent to your email. Please verify to create account."
-        : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(!emailSent ? { devOtp: otp } : {})
+        : (isDummyEmail || shouldReturnDevOtp ? "Demo/Testing fallback active. OTP auto-filled." : "OTP generated (email delivery failed — check server console for OTP)."),
+      ...(shouldReturnDevOtp ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -132,20 +135,7 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
     }
     
     const bcrypt = require("bcryptjs");
-    const isHashed = account.password.startsWith("$2"); // Check if password is already hashed
-
-    let isMatch = false;
-    if (isHashed) {
-      isMatch = await bcrypt.compare(password, account.password);
-    } else {
-      // Legacy plain text check
-      isMatch = (account.password === password);
-      // Auto-upgrade plain text password to secure bcrypt hash seamlessly
-      if (isMatch) {
-        account.password = await bcrypt.hash(password, 10);
-        await account.save();
-      }
-    }
+    const isMatch = await bcrypt.compare(password, account.password);
 
     if (!isMatch) return res.status(401).json({ success: false, message: "Incorrect password." });
     if (account.status === "pending") return res.status(403).json({ success: false, message: "Your account is pending Owner approval. Please wait." });
@@ -169,13 +159,16 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
       console.log(`\n  [DEV] Failed to send email to ${account.email}. Login OTP: ${otp}\n`);
     }
 
+    const isDev = process.env.NODE_ENV !== "production";
+    const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(account.email);
+    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
     res.json({
       success: true,
       requiresOtp: true,
       message: emailSent
         ? "OTP sent to your email. Please verify to login."
-        : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(!emailSent ? { devOtp: otp } : {})
+        : (isDummyEmail || shouldReturnDevOtp ? "Demo/Testing fallback active. OTP auto-filled." : "OTP generated (email delivery failed — check server console for OTP)."),
+      ...(shouldReturnDevOtp ? { devOtp: otp } : {})
     });
   } catch (err) { if (!res.headersSent) res.status(500).json({ success: false, message: err.message }); }
 });
@@ -238,12 +231,15 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
       console.log(`\n  [DEV] Failed to send email to ${account.email}. Reset OTP: ${otp}\n`);
     }
 
+    const isDev = process.env.NODE_ENV !== "production";
+    const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
+    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
     res.json({
       success: true,
       message: emailSent
         ? "Reset OTP sent to your email. Please verify to change your password."
-        : "OTP generated (email delivery failed — check server console for OTP).",
-      ...(!emailSent ? { devOtp: otp } : {})
+        : (isDummyEmail || shouldReturnDevOtp ? "Demo/Testing fallback active. OTP auto-filled." : "OTP generated (email delivery failed — check server console for OTP)."),
+      ...(shouldReturnDevOtp ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -396,14 +392,7 @@ router.put("/change-password", verifyToken, async (req, res) => {
     if (!account) return res.status(404).json({ success: false, message: "Account not found." });
     
     const bcrypt = require("bcryptjs");
-    const isHashed = account.password.startsWith("$2");
-    let isMatch = false;
-    
-    if (isHashed) {
-      isMatch = await bcrypt.compare(currentPassword, account.password);
-    } else {
-      isMatch = (account.password === currentPassword);
-    }
+    const isMatch = await bcrypt.compare(currentPassword, account.password);
     
     if (!isMatch) return res.status(401).json({ success: false, message: "Current password is incorrect." });
     
