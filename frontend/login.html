@@ -345,7 +345,7 @@
       if (isForgotPassword) {
         endpoint = isOtpStep ? '/api/auth/reset-password' : '/api/auth/forgot-password-otp';
       } else if (isSignUp) {
-        endpoint = '/api/auth/register'; // Always bypass OTP step for registration
+        endpoint = isOtpStep ? '/api/auth/register' : '/api/auth/send-register-otp';
       } else {
         endpoint = isOtpStep ? '/api/auth/verify-login-otp' : '/api/auth/login';
       }
@@ -358,9 +358,11 @@
             body.newPassword = password;
         }
       } else if (isSignUp) {
-        body.name = name;
-        body.password = password;
-        body.otp = "BYPASSED"; // Bypass OTP check
+        if (isOtpStep) {
+            body.name = name;
+            body.password = password;
+            body.otp = otp;
+        }
       } else {
         if (isOtpStep) {
             body.otp = otp;
