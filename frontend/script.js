@@ -312,7 +312,7 @@ function loadNavbarAvatar() {
       if (ddImg) ddImg.style.display = "none";
       if (ddPh) ddPh.style.display = "block";
     }
-  }).catch(function() {});
+  }).catch(function() { console.warn("[BookSphere] Could not load profile avatar"); });
 }
 
 function toggleProfileDropdown(e) {
@@ -416,6 +416,13 @@ function updateDashboardStats() {
     // Populate new dashboard panels
     renderDashStockDonut(d);
     renderDashOverdue(d.recent);
+  }).catch(function() {
+    showToast("Could not load dashboard stats. Database may be unreachable.", "error");
+    // Show zeroes so dashboard isn't blank
+    animateCounter("stat-total-books", 0);
+    animateCounter("stat-issued-books", 0);
+    var finesEl = document.getElementById("stat-total-fines");
+    if (finesEl) finesEl.textContent = "\u20B90";
   });
 
   // Load extra dashboard data
@@ -577,7 +584,10 @@ function renderDashRecentActivities() {
         '<div class="dash-timeline-desc">' + (log.details || log.user || "") + '</div>' +
         '<div class="dash-timeline-time">' + formatDateTime(log.timestamp || log.createdAt) + '</div></div></div>';
     }).join("");
-  }).catch(function() {});
+  }).catch(function() {
+    var el = document.getElementById("dash-recent-activities");
+    if (el) el.innerHTML = '<p style="color:var(--danger);text-align:center;padding:20px;">Could not load activities</p>';
+  });
 }
 
 // ============ DASHBOARD: OVERDUE ============
@@ -615,6 +625,9 @@ function loadRecommendations() {
         '<div class="rec-author">' + b.author + "</div>" +
         '<span class="rec-category">' + b.category + "</span></div>";
     }).join("");
+  }).catch(function() {
+    var grid = document.getElementById("recommendations-grid");
+    if (grid) grid.innerHTML = '<p style="color:var(--danger)">Could not load recommendations</p>';
   });
 }
 
@@ -632,7 +645,7 @@ function renderGamificationStats() {
       var rankColors = { Novice: "#a4b0be", Bookworm: "#f59e0b", Scholar: "#2ed573", Grandmaster: "#8854d0" };
       rankEl.style.color = rankColors[data.rank] || "#2ed573";
     }
-  }).catch(function() {});
+  }).catch(function() { console.warn("[BookSphere] Could not load gamification stats"); });
 }
 
 function renderLeaderboard() {
@@ -648,7 +661,10 @@ function renderLeaderboard() {
       var rankLabel = i < 3 ? medals[i] : "#" + (i + 1);
       return '<tr><td style="font-size:1.3rem">' + rankLabel + '</td><td>' + (u.name || "Unknown") + '</td><td style="font-weight:700;color:var(--accent)">' + (u.points || 0) + '</td><td>' + (u.readingStreak || 0) + '\uD83D\uDD25</td></tr>';
     }).join("");
-  }).catch(function() {});
+  }).catch(function() {
+    var tb = document.getElementById("leaderboard-body");
+    if (tb) tb.innerHTML = '<tr><td colspan="4" class="empty-state"><p>Could not load leaderboard</p></td></tr>';
+  });
 }
 
 // ============ BOOKS ============

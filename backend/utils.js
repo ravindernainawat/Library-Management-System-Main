@@ -151,12 +151,18 @@ async function sendEmail(to, subject, html) {
     try {
       return await sendViaSMTP(to, subject, html, text);
     } catch(e) {
-      const errDetail = `code=${e.code || 'UNKNOWN'} msg=${e.message}`;
-      console.error(`[Email/SMTP] ✗ Failed for ${to}: ${errDetail}`);
+      if (process.env.NODE_ENV === "production") {
+        console.error(`[Email/SMTP] ✗ Failed for ${to}`);
+      } else {
+        const errDetail = `code=${e.code || 'UNKNOWN'} msg=${e.message}`;
+        console.error(`[Email/SMTP] ✗ Failed for ${to}: ${errDetail}`);
+      }
     }
   }
   
-  console.log("[Email] No working email provider. Set RESEND_API_KEY for Railway.");
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[Email] No working email provider. Set RESEND_API_KEY for Railway.");
+  }
   return false;
 }
 
