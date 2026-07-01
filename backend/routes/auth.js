@@ -65,12 +65,17 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
 
     const isDev = process.env.NODE_ENV !== "production";
     const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
-    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
+    const shouldReturnDevOtp = isDev || isDummyEmail || process.env.ALLOW_DEMO_OTP === "true";
+    
+    if (!emailSent && !shouldReturnDevOtp) {
+      return res.status(500).json({ success: false, message: "Failed to send verification email. Please try again later or contact support." });
+    }
+
     res.json({
       success: true,
       message: emailSent
         ? "OTP sent to your email. Please verify to create account."
-        : (isDummyEmail || shouldReturnDevOtp ? "Demo/Testing fallback active. OTP auto-filled." : "OTP generated (email delivery failed — check server console for OTP)."),
+        : "Demo/Testing fallback active. OTP auto-filled.",
       ...(shouldReturnDevOtp ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -239,12 +244,17 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
 
     const isDev = process.env.NODE_ENV !== "production";
     const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
-    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
+    const shouldReturnDevOtp = isDev || isDummyEmail || process.env.ALLOW_DEMO_OTP === "true";
+    
+    if (!emailSent && !shouldReturnDevOtp) {
+      return res.status(500).json({ success: false, message: "Failed to send verification email. Please try again later or contact support." });
+    }
+
     res.json({
       success: true,
       message: emailSent
         ? "Reset OTP sent to your email. Please verify to change your password."
-        : (isDummyEmail || shouldReturnDevOtp ? "Demo/Testing fallback active. OTP auto-filled." : "OTP generated (email delivery failed — check server console for OTP)."),
+        : "Demo/Testing fallback active. OTP auto-filled.",
       ...(shouldReturnDevOtp ? { devOtp: otp } : {})
     });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
