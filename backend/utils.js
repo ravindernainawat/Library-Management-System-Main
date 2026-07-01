@@ -30,48 +30,43 @@ async function notifyReservationQueue(book, Reservation, Notification) {
 // EMAIL DELIVERY SYSTEM
 //
 // Priority order:
-//   1. Brevo SMTP    — Primary for production (free 300/day, works on Railway)
-//   2. Resend API    — Secondary cloud provider (sandbox: only sends to verified emails)
-//   3. Gmail SMTP    — Local development fallback (blocked on cloud platforms)
+//   1. Brevo HTTP API — Primary for production (free 300/day, works on Railway, ANY recipient)
+//   2. Resend API     — Secondary cloud provider (sandbox: only sends to verified emails)
+//   3. Gmail SMTP     — Local development fallback (blocked on cloud platforms)
 //
 // Brevo Setup (Recommended for Production):
 //   1. Sign up free at https://www.brevo.com
-//   2. Go to Settings → SMTP & API → SMTP tab
-//   3. Copy Login (email) and Master Password (SMTP key)
+//   2. Go to Settings → SMTP & API → API Keys tab → Generate a new API key
+//   3. Copy the API key (starts with xkeysib-...)
 //   4. Set these env vars in Railway:
-//      BREVO_SMTP_USER=your-login@email.com
-//      BREVO_SMTP_PASS=xsmtpsib-xxxxxx
-//      BREVO_SENDER_EMAIL=ravindernainawat007@gmail.com  (must be verified in Brevo)
+//      BREVO_API_KEY=xkeysib-xxxxxx
+//      BREVO_SENDER_EMAIL=ravindernainawat007@gmail.com  (must match your Brevo account email)
 //      BREVO_SENDER_NAME=BookSphere
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Strategy 1: Brevo SMTP (works on Railway, sends to ANY email, free 300/day)
+// Strategy 1: Brevo HTTP API (works on Railway, sends to ANY email, free 300/day, no SMTP needed)
 async function sendViaBrevo(to, subject, html, text) {
-  const nodemailer = require("nodemailer");
-  const transporter = nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_SMTP_USER,
-      pass: process.env.BREVO_SMTP_PASS,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  });
-
+  const axios = require("axios");
+  
   const senderName = process.env.BREVO_SENDER_NAME || "BookSphere";
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "ravindernainawat007@gmail.com";
 
-  const info = await transporter.sendMail({
-    from: `"${senderName}" <${senderEmail}>`,
-    to,
-    subject,
-    text,
-    html,
+  const response = await axios.post("https://api.brevo.com/v3/smtp/email", {
+    sender: { name: senderName, email: senderEmail },
+    to: [{ email: to }],
+    subject: subject,
+    htmlContent: html,
+    textContent: text,
+  }, {
+    headers: {
+      "api-key": process.env.BREVO_API_KEY,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    timeout: 15000,
   });
-  console.log(`[Email/Brevo] ✓ Sent to ${to} (messageId: ${info.messageId})`);
+  
+  console.log(`[Email/Brevo] ✓ Sent to ${to} (messageId: ${response.data.messageId})`);
   return true;
 }
 
@@ -119,36 +114,31 @@ async function sendViaSMTP(to, subject, html, text) {
 
 // Verify email provider at startup
 async function verifySMTP() {
-  // Check Brevo first (production recommended)
-  if (process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS) {
+  // Check Brevo API first (production recommended)
+  if (process.env.BREVO_API_KEY) {
     try {
-      const nodemailer = require("nodemailer");
-      const transporter = nodemailer.createTransport({
-        host: "smtp-relay.brevo.com",
-        port: 587,
-        secure: false,
-        auth: { user: process.env.BREVO_SMTP_USER, pass: process.env.BREVO_SMTP_PASS },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
+      const axios = require("axios");
+      const response = await axios.get("https://api.brevo.com/v3/account", {
+        headers: { "api-key": process.env.BREVO_API_KEY },
+        timeout: 10000,
       });
-      await transporter.verify();
-      console.log("  ✓ Brevo SMTP verified — email delivery active (production-ready)");
-      console.log(`    Sender: ${process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER}`);
+      const plan = response.data.plan?.[0]?.type || "free";
+      console.log(`  ✓ Brevo API verified — email delivery active (plan: ${plan})`);
+      console.log(`    Sender: ${process.env.BREVO_SENDER_EMAIL || "ravindernainawat007@gmail.com"}`);
+      console.log(`    Free tier: 300 emails/day to ANY recipient`);
       return true;
     } catch(e) {
-      console.error("  ✗ Brevo SMTP verification FAILED:", e.code || e.message);
+      console.error("  ✗ Brevo API verification FAILED:", e.response?.data?.message || e.message);
     }
   }
 
   // Check Resend
   if (process.env.RESEND_API_KEY) {
     try {
-      const { Resend } = require("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
       console.log("  ✓ Resend API key configured — email delivery active (cloud-ready)");
       console.log(`    From: ${process.env.EMAIL_FROM || "onboarding@resend.dev"}`);
       console.log("    ⚠ Note: Resend free tier only sends to YOUR verified email.");
-      console.log("    → For sending to ANY email, configure Brevo SMTP (free at brevo.com)");
+      console.log("    → For sending to ANY email, configure BREVO_API_KEY (free at brevo.com)");
       return true;
     } catch(e) {
       console.error("  ✗ Resend setup error:", e.message);
@@ -173,17 +163,17 @@ async function verifySMTP() {
     } catch(e) {
       console.error("  ✗ SMTP verification FAILED:", e.code || e.message);
       console.error("    Gmail SMTP is blocked on most cloud platforms.");
-      console.error("    → Set BREVO_SMTP_USER/BREVO_SMTP_PASS for cloud deployment (free at brevo.com)");
+      console.error("    → Set BREVO_API_KEY for cloud deployment (free at brevo.com)");
       return false;
     }
   }
   
   console.log("  ⚠ No email provider configured.");
-  console.log("    → Set BREVO_SMTP_USER + BREVO_SMTP_PASS for production (free at brevo.com)");
+  console.log("    → Set BREVO_API_KEY for production (free at brevo.com)");
   return false;
 }
 
-// Main email function — tries Brevo → Resend → Gmail SMTP
+// Main email function — tries Brevo API → Resend → Gmail SMTP
 async function sendEmail(to, subject, html) {
   // Prevent sending emails to dummy/test domains which cause bounces
   if (/@(booksphere\.com|example\.com|test\.com)$/i.test(to)) {
@@ -193,12 +183,12 @@ async function sendEmail(to, subject, html) {
   
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   
-  // Strategy 1: Brevo SMTP (production — sends to ANY email, no domain verification)
-  if (process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS) {
+  // Strategy 1: Brevo HTTP API (production — sends to ANY email, no SMTP ports needed)
+  if (process.env.BREVO_API_KEY) {
     try {
       return await sendViaBrevo(to, subject, html, text);
     } catch(e) {
-      console.error(`[Email/Brevo] ✗ Failed for ${to}: ${e.message}`);
+      console.error(`[Email/Brevo] ✗ Failed for ${to}: ${e.response?.data?.message || e.message}`);
     }
   }
 
@@ -225,7 +215,7 @@ async function sendEmail(to, subject, html) {
     }
   }
   
-  console.error("[Email] ✗ All email strategies failed. Configure BREVO_SMTP_USER/BREVO_SMTP_PASS in Railway.");
+  console.error("[Email] ✗ All email strategies failed. Configure BREVO_API_KEY in Railway.");
   return false;
 }
 
