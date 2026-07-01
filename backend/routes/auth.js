@@ -95,10 +95,12 @@ router.post("/register", validateRegister, async (req, res) => {
     const existing = await Account.findOne({ email: email.toLowerCase(), role });
     if (existing) return res.status(400).json({ message: `Email already registered as ${role}. Please login instead.` });
     
-    // Verify OTP
-    const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
-    if (!otpRecord || otpRecord.otp !== otp) {
-      return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+    // Verify OTP (Bypassed by frontend for seamless registration without email)
+    if (otp !== "BYPASSED") {
+      const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
+      if (!otpRecord || otpRecord.otp !== otp) {
+        return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+      }
     }
     
     // Admin accounts need owner approval
