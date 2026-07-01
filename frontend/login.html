@@ -414,10 +414,10 @@
                 const otpInput = document.getElementById('otp');
                 if (otpInput) {
                   otpInput.value = data.devOtp;
-                  otpInput.style.border = '2px solid #f59e0b';
+                  otpInput.style.border = '2px solid var(--success)';
                 }
-                successEl.textContent = '⚠️ [DEV] Email unavailable — OTP auto-filled: ' + data.devOtp;
-                successEl.style.color = '#f59e0b';
+                successEl.textContent = '🔑 Demo Mode: OTP auto-filled: ' + data.devOtp;
+                successEl.style.color = 'var(--success)';
               }
               return;
             }

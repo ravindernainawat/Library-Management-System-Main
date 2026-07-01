@@ -141,8 +141,6 @@ async function sendEmail(to, subject, html) {
       return await sendViaResend(to, subject, html, text);
     } catch(e) {
       console.error(`[Email/Resend] ✗ Failed for ${to}: ${e.message}`);
-      // Don't fall through to SMTP on cloud — it'll fail too
-      if (process.env.NODE_ENV === "production") return false;
     }
   }
   
