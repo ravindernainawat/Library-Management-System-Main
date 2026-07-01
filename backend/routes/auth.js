@@ -141,6 +141,12 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
     if (account.status === "pending") return res.status(403).json({ success: false, message: "Your account is pending Owner approval. Please wait." });
     if (account.status === "blocked") return res.status(403).json({ success: false, message: `Account blocked: ${account.blockedReason || "Contact admin."}` });
     
+    // In production, bypass OTP and use normal password login if requested
+    if (process.env.NODE_ENV === "production") {
+      const token = jwt.sign({ id: account._id, name: account.name, email: account.email, role: account.role }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ success: true, token, user: { name: account.name, email: account.email, role: account.role, status: account.status } });
+    }
+
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
