@@ -68,9 +68,9 @@ async function sendViaSMTP(to, subject, html, text) {
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: (process.env.SMTP_PORT || '587') === '465',
     auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 60000,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   });
   
   const info = await transporter.sendMail({ 
@@ -107,8 +107,8 @@ async function verifySMTP() {
         port: parseInt(process.env.SMTP_PORT || '587'),
         secure: (process.env.SMTP_PORT || '587') === '465',
         auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
       });
       await transporter.verify();
       console.log("  ✓ SMTP connection verified — email delivery active (local/SMTP)");
