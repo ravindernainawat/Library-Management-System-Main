@@ -181,6 +181,12 @@ async function sendEmail(to, subject, html) {
     return false;
   }
   
+  const hasProvider = process.env.BREVO_API_KEY || process.env.RESEND_API_KEY || (process.env.SMTP_ENABLED === "true" && process.env.SMTP_EMAIL);
+  if (!hasProvider) {
+    console.warn(`[Email] ⚠ No email provider configured. Skipped sending email to: ${to}`);
+    return false;
+  }
+
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   
   // Strategy 1: Brevo HTTP API (production — sends to ANY email, no SMTP ports needed)

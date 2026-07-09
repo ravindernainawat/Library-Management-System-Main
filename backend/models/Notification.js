@@ -22,32 +22,36 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 notificationSchema.post("save", async function(doc) {
-  if (!doc.emailSent) {
-    let toEmail = doc.userEmail;
-    // If no email was provided (e.g., cron job reminders), look it up
-    if (!toEmail && doc.userName) {
-      const User = mongoose.model("User");
-      const user = await User.findOne({ name: doc.userName });
-      if (user && user.contact) {
-        toEmail = user.contact;
-      } else {
-        const Account = mongoose.model("Account");
-        const account = await Account.findOne({ name: doc.userName });
-        if (account && account.email) {
-          toEmail = account.email;
+  try {
+    if (!doc.emailSent) {
+      let toEmail = doc.userEmail;
+      // If no email was provided (e.g., cron job reminders), look it up
+      if (!toEmail && doc.userName) {
+        const User = mongoose.model("User");
+        const user = await User.findOne({ name: doc.userName });
+        if (user && user.contact) {
+          toEmail = user.contact;
+        } else {
+          const Account = mongoose.model("Account");
+          const account = await Account.findOne({ name: doc.userName });
+          if (account && account.email) {
+            toEmail = account.email;
+          }
+        }
+      }
+
+      if (toEmail) {
+        const { sendEmail } = require("../utils");
+        const sent = await sendEmail(toEmail, "BookSphere Library Notification", doc.message);
+        if (sent) {
+          // Use updateOne to avoid triggering another save hook
+          await mongoose.model("Notification").updateOne({ _id: doc._id }, { emailSent: true, userEmail: toEmail });
+          doc.userEmail = toEmail; // Update locally for the socket emission
         }
       }
     }
-
-    if (toEmail) {
-      const { sendEmail } = require("../utils");
-      const sent = await sendEmail(toEmail, "BookSphere Library Notification", doc.message);
-      if (sent) {
-        // Use updateOne to avoid triggering another save hook
-        await mongoose.model("Notification").updateOne({ _id: doc._id }, { emailSent: true, userEmail: toEmail });
-        doc.userEmail = toEmail; // Update locally for the socket emission
-      }
-    }
+  } catch (err) {
+    console.error("[Notification/Email] Failed to process email send:", err.message);
   }
 
   // Emit the real-time notification

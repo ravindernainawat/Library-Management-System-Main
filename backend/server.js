@@ -380,6 +380,13 @@ async function connectDB() {
   } catch (e) {
     dbStatus = { connected: false, type: "none", lastError: e.message, retries: MAX_RETRIES };
     console.error("  ✗ All DB connections failed:", e.message);
+    const isBinaryErr = e.message.toLowerCase().includes("binary") || 
+                        e.message.toLowerCase().includes("download") || 
+                        e.message.toLowerCase().includes("find");
+    if (isBinaryErr) {
+      console.error("    Hint: Local MongoDB memory server failed to start (likely due to missing binary in production/Docker).");
+      console.error("          Ensure MONGODB_URI is correctly configured in your environment variables.");
+    }
     console.error("  ✗ Server cannot start without a database. Exiting.");
     process.exit(1);
   }
