@@ -38,7 +38,8 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
     }
     
     const isCollegeEmail = email.toLowerCase().endsWith('@krmu.edu.in');
-    const isOwnerEmail = email.toLowerCase() === 'ravindernainawat007@gmail.com';
+    const ownerEmailConfig = (process.env.OWNER_EMAIL || "owner@booksphere.com").toLowerCase();
+    const isOwnerEmail = email.toLowerCase() === ownerEmailConfig;
     if (!isCollegeEmail && !isOwnerEmail) {
       return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
     }
@@ -101,6 +102,13 @@ router.post("/register", validateRegister, async (req, res) => {
     const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
     if (!otpRecord || otpRecord.otp !== otp) {
       return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+    }
+    
+    // Explicit expiry check — MongoDB TTL cleanup can be delayed up to 60s
+    const otpAgeMs = Date.now() - new Date(otpRecord.createdAt).getTime();
+    if (otpAgeMs > 10 * 60 * 1000) {
+      await OTP.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
     }
     
     // Admin accounts need owner approval

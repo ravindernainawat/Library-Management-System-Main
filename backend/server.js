@@ -20,7 +20,7 @@ const slowDown = require("express-slow-down");
 const helmet = require("helmet");
 const hpp = require("hpp");
 const compression = require("compression");
-const xss = require("xss-clean");
+const { xss } = require("express-xss-sanitizer");
 
 // Models
 const Account    = require("./models/Account");

@@ -32,7 +32,11 @@ const validateRegister = (req, res, next) => {
   
   const { email, role } = req.body;
   if (role !== 'owner' && email && !email.toLowerCase().endsWith('@krmu.edu.in')) {
-    return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
+    // Allow the configured owner email to register as admin (bootstrap exception)
+    const ownerEmail = (process.env.OWNER_EMAIL || "owner@booksphere.com").toLowerCase();
+    if (email.toLowerCase() !== ownerEmail) {
+      return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
+    }
   }
   
   next();

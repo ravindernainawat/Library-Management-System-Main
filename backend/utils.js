@@ -29,19 +29,15 @@ async function notifyReservationQueue(book, Reservation, Notification) {
 // ─────────────────────────────────────────────────────────────────────────────
 // EMAIL DELIVERY SYSTEM
 //
-// Priority order:
-//   1. Brevo HTTP API — Primary for production (free 300/day, works on Railway, ANY recipient)
-//   2. Resend API     — Secondary cloud provider (sandbox: only sends to verified emails)
+// Priority order (Automatic Fallback Chain):
+//   1. Brevo HTTP API — Primary provider (free 300/day, sends to ANY recipient)
+//   2. Resend API     — Secondary provider (free 100/day, free tier sends ONLY to verified email)
 //   3. Gmail SMTP     — Local development fallback (blocked on cloud platforms)
 //
-// Brevo Setup (Recommended for Production):
-//   1. Sign up free at https://www.brevo.com
-//   2. Go to Settings → SMTP & API → API Keys tab → Generate a new API key
-//   3. Copy the API key (starts with xkeysib-...)
-//   4. Set these env vars in Railway:
-//      BREVO_API_KEY=xkeysib-xxxxxx
-//      BREVO_SENDER_EMAIL=ravindernainawat007@gmail.com  (must match your Brevo account email)
-//      BREVO_SENDER_NAME=BookSphere
+// Setup Guides:
+//   - Brevo: Sign up free at https://www.brevo.com, SMTP & API key, set BREVO_API_KEY.
+//   - Resend: Sign up free at https://resend.com, get API key, set RESEND_API_KEY.
+//   - Gmail SMTP: Enable 2FA, create App Password, set SMTP_EMAIL and SMTP_PASSWORD.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Strategy 1: Brevo HTTP API (works on Railway, sends to ANY email, free 300/day, no SMTP needed)
@@ -49,7 +45,7 @@ async function sendViaBrevo(to, subject, html, text) {
   const axios = require("axios");
   
   const senderName = process.env.BREVO_SENDER_NAME || "BookSphere";
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || "ravindernainawat007@gmail.com";
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "info@booksphere.com";
 
   const response = await axios.post("https://api.brevo.com/v3/smtp/email", {
     sender: { name: senderName, email: senderEmail },
@@ -77,17 +73,25 @@ async function sendViaResend(to, subject, html, text) {
   
   const fromAddress = process.env.EMAIL_FROM || "BookSphere <onboarding@resend.dev>";
   
-  const { data, error } = await resend.emails.send({
-    from: fromAddress,
-    to: [to],
-    subject,
-    html,
-    text,
-  });
-  
-  if (error) throw new Error(error.message);
-  console.log(`[Email/Resend] ✓ Sent to ${to} (id: ${data.id})`);
-  return true;
+  try {
+    const { data, error } = await resend.emails.send({
+      from: fromAddress,
+      to: [to],
+      subject,
+      html,
+      text,
+    });
+    
+    if (error) {
+      console.error("❌ Resend API Error Details:", error);
+      throw new Error(error.message || JSON.stringify(error));
+    }
+    console.log(`[Email/Resend] ✓ Sent to ${to} (id: ${data.id})`);
+    return true;
+  } catch (err) {
+    console.error("❌ Resend Exception Details:", err);
+    throw err;
+  }
 }
 
 // Strategy 3: Gmail SMTP (works locally, blocked on most cloud platforms)
@@ -114,8 +118,12 @@ async function sendViaSMTP(to, subject, html, text) {
 
 // Verify email provider at startup
 async function verifySMTP() {
-  // Check Brevo API first (production recommended)
+  let isAnyConfigured = false;
+  let isAnySuccessful = false;
+
+  // Check Brevo API (Primary — sends to ANY email)
   if (process.env.BREVO_API_KEY) {
+    isAnyConfigured = true;
     try {
       const axios = require("axios");
       const response = await axios.get("https://api.brevo.com/v3/account", {
@@ -123,30 +131,31 @@ async function verifySMTP() {
         timeout: 10000,
       });
       const plan = response.data.plan?.[0]?.type || "free";
-      console.log(`  ✓ Brevo API verified — email delivery active (plan: ${plan})`);
-      console.log(`    Sender: ${process.env.BREVO_SENDER_EMAIL || "ravindernainawat007@gmail.com"}`);
+      console.log(`  ✓ Brevo API verified — email delivery active (Primary, plan: ${plan})`);
+      console.log(`    Sender: ${process.env.BREVO_SENDER_EMAIL || "info@booksphere.com"}`);
       console.log(`    Free tier: 300 emails/day to ANY recipient`);
-      return true;
+      isAnySuccessful = true;
     } catch(e) {
       console.error("  ✗ Brevo API verification FAILED:", e.response?.data?.message || e.message);
     }
   }
 
-  // Check Resend
+  // Check Resend API (Secondary — free tier only sends to verified email)
   if (process.env.RESEND_API_KEY) {
+    isAnyConfigured = true;
     try {
-      console.log("  ✓ Resend API key configured — email delivery active (cloud-ready)");
+      console.log("  ✓ Resend API key configured — email delivery active (Secondary, cloud-ready)");
       console.log(`    From: ${process.env.EMAIL_FROM || "onboarding@resend.dev"}`);
       console.log("    ⚠ Note: Resend free tier only sends to YOUR verified email.");
-      console.log("    → For sending to ANY email, configure BREVO_API_KEY (free at brevo.com)");
-      return true;
+      isAnySuccessful = true;
     } catch(e) {
       console.error("  ✗ Resend setup error:", e.message);
     }
   }
   
-  // Fall back to Gmail SMTP check
+  // Check Gmail SMTP check (Fallback)
   if (process.env.SMTP_ENABLED === "true" && process.env.SMTP_EMAIL) {
+    isAnyConfigured = true;
     try {
       const nodemailer = require("nodemailer");
       const transporter = nodemailer.createTransport({ 
@@ -158,19 +167,22 @@ async function verifySMTP() {
         greetingTimeout: 5000,
       });
       await transporter.verify();
-      console.log("  ✓ SMTP connection verified — email delivery active (local/SMTP)");
-      return true;
+      console.log("  ✓ SMTP connection verified — email delivery active (Fallback, local/SMTP)");
+      isAnySuccessful = true;
     } catch(e) {
       console.error("  ✗ SMTP verification FAILED:", e.code || e.message);
       console.error("    Gmail SMTP is blocked on most cloud platforms.");
       console.error("    → Set BREVO_API_KEY for cloud deployment (free at brevo.com)");
-      return false;
     }
   }
   
-  console.log("  ⚠ No email provider configured.");
-  console.log("    → Set BREVO_API_KEY for production (free at brevo.com)");
-  return false;
+  if (!isAnyConfigured) {
+    console.log("  ⚠ No email provider configured.");
+    console.log("    → Set BREVO_API_KEY for production (free 300 emails/day at brevo.com)");
+    return false;
+  }
+  
+  return isAnySuccessful;
 }
 
 // Main email function — tries Brevo API → Resend → Gmail SMTP
@@ -189,25 +201,25 @@ async function sendEmail(to, subject, html) {
 
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   
-  // Strategy 1: Brevo HTTP API (production — sends to ANY email, no SMTP ports needed)
+  // Strategy 1: Brevo HTTP API (Primary — sends to ANY email, free 300/day)
   if (process.env.BREVO_API_KEY) {
     try {
       return await sendViaBrevo(to, subject, html, text);
     } catch(e) {
-      console.error(`[Email/Brevo] ✗ Failed for ${to}: ${e.response?.data?.message || e.message}`);
+      console.warn(`[Email/Brevo] ✗ Failed for ${to}: ${e.response?.data?.message || e.message}. Trying next provider...`);
     }
   }
 
-  // Strategy 2: Resend API (cloud-ready but free tier is sandbox-limited)
+  // Strategy 2: Resend API (Secondary — free tier only sends to verified email)
   if (process.env.RESEND_API_KEY) {
     try {
       return await sendViaResend(to, subject, html, text);
     } catch(e) {
-      console.error(`[Email/Resend] ✗ Failed for ${to}: ${e.message}`);
+      console.warn(`[Email/Resend] ✗ Failed for ${to}: ${e.message}. Trying next provider...`);
     }
   }
   
-  // Strategy 3: Gmail SMTP (works locally, usually blocked on cloud)
+  // Strategy 3: Gmail SMTP (Fallback — works locally, blocked on most cloud platforms)
   if (process.env.SMTP_ENABLED === "true" && process.env.SMTP_EMAIL) {
     try {
       return await sendViaSMTP(to, subject, html, text);
@@ -221,7 +233,7 @@ async function sendEmail(to, subject, html) {
     }
   }
   
-  console.error("[Email] ✗ All email strategies failed. Configure BREVO_API_KEY in Railway.");
+  console.error("[Email] ✗ All email strategies failed. Configure BREVO_API_KEY or RESEND_API_KEY.");
   return false;
 }
 
