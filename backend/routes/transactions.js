@@ -10,6 +10,7 @@ const Reservation = require("../models/Reservation");
 const Wishlist = require("../models/Wishlist");
 const { logActivity, notifyReservationQueue, calcFine } = require("../utils");
 const { verifyAdmin } = require("../middleware/auth");
+const PDFDocument = require("pdfkit");
 // Issue limits by role
 const ISSUE_LIMITS = { student: 3, teacher: 5, admin: 10, owner: 10 };
 const DUE_DAYS    = { student: 14, teacher: 30, admin: 30, owner: 30 };
@@ -323,25 +324,116 @@ router.put("/:id/damage-fine", verifyAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// RECORD PAYMENT
+// GET UNPAID FINES
+router.get("/fines/unpaid", async (req, res) => {
+  try {
+    const filter = { fineStatus: "unpaid" };
+    if (req.user.role !== "admin" && req.user.role !== "owner") {
+      filter.userName = req.user.name;
+    }
+    const txs = await Transaction.find(filter).sort({ createdAt: -1 });
+    const enriched = [];
+    for (const t of txs) {
+      const book = await Book.findById(t.bookId);
+      const fine = calcFine(t);
+      enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
+    }
+    res.json({ success: true, data: enriched });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// GET FINE PAYMENT HISTORY
+router.get("/fines/history", async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role !== "admin" && req.user.role !== "owner") {
+      filter.userName = req.user.name;
+    }
+
+    // Status filter
+    if (req.query.status && req.query.status !== "all") {
+      if (req.query.status === "paid") {
+        filter.fineStatus = "paid";
+      } else if (req.query.status === "pending") {
+        filter.fineStatus = "unpaid";
+      }
+    } else {
+      // By default show all transactions that have a fine
+      filter.$or = [
+        { fineStatus: { $in: ["unpaid", "paid"] } },
+        { overdueFine: { $gt: 0 } },
+        { damageFine: { $gt: 0 } },
+        { totalFine: { $gt: 0 } }
+      ];
+    }
+    
+    // Method filter
+    if (req.query.method && req.query.method !== "all") {
+      filter.paymentMethod = req.query.method;
+    }
+    
+    const txs = await Transaction.find(filter).sort({ paymentDate: -1, updatedAt: -1 });
+    const enriched = [];
+    for (const t of txs) {
+      const book = await Book.findById(t.bookId);
+      const fine = calcFine(t);
+      enriched.push({ ...t.toObject(), id: t._id, bookTitle: book ? book.title : "Deleted", fine });
+    }
+    res.json({ success: true, data: enriched });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// RECORD PAYMENT (ADMIN PUT DIRECT PAYMENT)
 router.put("/:id/pay", verifyAdmin, async (req, res) => {
   try {
     const { paymentMethod, paidBy } = req.body;
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ message: "Transaction not found." });
+
+    if (tx.fineStatus === "paid") {
+      return res.status(400).json({ message: "Fine already paid." });
+    }
+
+    if (!["cash", "upi", "card", "net_banking"].includes(paymentMethod)) {
+      return res.status(400).json({ message: "Invalid payment method." });
+    }
+
+    const fineAmount = tx.totalFine || calcFine(tx);
+    if (fineAmount <= 0) {
+      return res.status(400).json({ message: "No outstanding fine for this transaction." });
+    }
+
+    // Update Transaction
     tx.fineStatus = "paid";
-    tx.paymentMethod = paymentMethod || "cash";
+    tx.paymentStatus = "completed";
+    tx.paymentMethod = paymentMethod;
     tx.paymentDate = new Date();
+    tx.transactionId = paymentMethod === "cash" 
+      ? "CASH-" + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase()
+      : "TXN-" + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+    tx.verified = true;
+    tx.verifiedBy = req.user.id;
+    tx.verifiedAt = new Date();
+    tx.receiptNumber = "RCPT-" + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
     await tx.save();
-    logActivity("Fine Payment", paidBy || "Admin", `Fine ₹${tx.totalFine} paid via ${paymentMethod}`);
-    res.json({ success: true, totalFine: tx.totalFine, paymentMethod: tx.paymentMethod });
+
+    // Create Notification for student
+    await Notification.create({
+      userName: tx.userName,
+      userEmail: "",
+      type: "general",
+      message: `Fine of ₹${fineAmount} has been marked as PAID via ${paymentMethod.toUpperCase()} by Admin. Receipt: ${tx.receiptNumber}`
+    });
+
+    logActivity("Fine Payment", paidBy || "Admin", `Fine ₹${fineAmount} paid via ${paymentMethod} (Direct/Cash)`);
+    res.json({ success: true, totalFine: tx.totalFine, paymentMethod: tx.paymentMethod, receiptNumber: tx.receiptNumber });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// STUDENT MOCK ONLINE PAYMENT
+// STUDENT PAYMENT SUBMISSION
 router.post("/pay-fine/:id", async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, paymentMethod } = req.body;
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
     
@@ -349,14 +441,174 @@ router.post("/pay-fine/:id", async (req, res) => {
     if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
       return res.status(403).json({ success: false, message: "Forbidden. You can only pay your own fines." });
     }
-    
+
+    if (tx.fineStatus === "paid") {
+      return res.status(400).json({ success: false, message: "Fine already paid." });
+    }
+
+    const fineAmount = tx.totalFine || calcFine(tx);
+    if (fineAmount <= 0) {
+      return res.status(400).json({ success: false, message: "No outstanding fine for this transaction." });
+    }
+
+    // Student cannot pay via Cash
+    if (req.user.role !== "admin" && req.user.role !== "owner" && paymentMethod === "cash") {
+      return res.status(400).json({ success: false, message: "Students cannot pay fines using Cash. Please choose UPI, Card, or Net Banking." });
+    }
+
+    if (!["upi", "card", "net_banking", "online"].includes(paymentMethod)) {
+      return res.status(400).json({ success: false, message: "Invalid payment method." });
+    }
+
     tx.fineStatus = "paid";
-    tx.paymentMethod = "online";
+    tx.paymentStatus = "completed";
+    tx.paymentMethod = paymentMethod;
     tx.paymentDate = new Date();
+    tx.transactionId = "TXN-" + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
+    tx.verified = false; // Pending verification
+    tx.receiptNumber = "RCPT-" + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
     await tx.save();
+
+    // Notify Student
+    await Notification.create({
+      userName: tx.userName,
+      userEmail: "",
+      type: "general",
+      message: `Fine payment of ₹${fineAmount} submitted via ${paymentMethod.toUpperCase()}. Transaction ID: ${tx.transactionId}. Pending verification.`
+    });
+
+    // Notify Admin/Owner
+    await Notification.create({
+      userName: "Admin",
+      userEmail: "",
+      type: "admin_approval",
+      message: `Fine payment of ₹${fineAmount} submitted by ${tx.userName} via ${paymentMethod.toUpperCase()}. Pending verification.`
+    });
+
+    logActivity("Online Payment", tx.userName, `Fine ₹${amount || fineAmount} paid online via Stripe mock (${paymentMethod})`);
+    res.json({ success: true, message: "Payment successful! Pending admin verification.", data: tx });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ADMIN VERIFICATION OF PAYMENT
+router.put("/verify-fine/:id", verifyAdmin, async (req, res) => {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
+
+    if (tx.fineStatus !== "paid" || tx.paymentStatus !== "completed") {
+      return res.status(400).json({ success: false, message: "Payment must be completed before verification." });
+    }
+
+    if (tx.verified) {
+      return res.status(400).json({ success: false, message: "Payment already verified." });
+    }
+
+    tx.verified = true;
+    tx.verifiedBy = req.user.id;
+    tx.verifiedAt = new Date();
+    await tx.save();
+
+    // Notify Student
+    await Notification.create({
+      userName: tx.userName,
+      userEmail: "",
+      type: "general",
+      message: `Your fine payment of ₹${tx.totalFine || tx.overdueFine} has been verified by the administrator. Receipt Number: ${tx.receiptNumber}.`
+    });
+
+    logActivity("Verify Fine Payment", req.user.name, `Verified payment of ₹${tx.totalFine} for user ${tx.userName}`);
+    res.json({ success: true, message: "Payment verified successfully.", data: tx });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET RECEIPT PDF
+router.get("/receipt/:id", async (req, res) => {
+  try {
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
+
+    if (tx.fineStatus !== "paid") {
+      return res.status(400).json({ success: false, message: "Receipt can only be generated for paid fines." });
+    }
+
+    // Auth Check: Student can only access their own receipt
+    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
+      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own receipts." });
+    }
+
+    const book = await Book.findById(tx.bookId);
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=Receipt-${tx.receiptNumber || tx._id}.pdf`);
+    doc.pipe(res);
+
+    // PDF styling and presentation
+    doc.fillColor("#3b82f6").fontSize(26).text("BookSphere", { align: "center" });
+    doc.fillColor("#666666").fontSize(10).text("Advance Library Management System", { align: "center" });
+    doc.moveDown(1.5);
+
+    doc.strokeColor("#dddddd").lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+    doc.moveDown(1.5);
+
+    doc.fillColor("#222222").fontSize(18).text("FINE PAYMENT RECEIPT", { align: "center" });
+    doc.moveDown(1.5);
+
+    doc.fontSize(11);
+    const leftMargin = 70;
     
-    logActivity("Online Payment", tx.userName, `Fine ₹${amount} paid online via Stripe mock`);
-    res.json({ success: true, message: "Payment successful" });
+    doc.text(`Receipt Number:   ${tx.receiptNumber || "N/A"}`, leftMargin, doc.y);
+    doc.text(`Transaction ID:   ${tx.transactionId || "N/A"}`);
+    doc.text(`Payment Date:     ${tx.paymentDate ? new Date(tx.paymentDate).toLocaleString("en-IN") : "N/A"}`);
+    doc.text(`Payment Method:   ${tx.paymentMethod.toUpperCase()}`);
+    
+    doc.text(`Status:           `, { continued: true });
+    doc.fillColor(tx.verified ? "#10B981" : "#F59E0B").text(`${tx.verified ? "VERIFIED" : "PENDING VERIFICATION"}`);
+    doc.fillColor("#222222"); // reset color
+
+    doc.moveDown(2);
+    doc.fontSize(13).text("Transaction Details", { underline: true });
+    doc.moveDown(0.5);
+
+    doc.fontSize(11);
+    doc.text(`Student Name:     ${tx.userName}`);
+    doc.text(`Book Title:       ${book ? book.title : "Deleted Book"}`);
+    doc.text(`Due Date:         ${new Date(tx.dueDate).toLocaleDateString("en-IN")}`);
+    
+    if (tx.returnDate) {
+      doc.text(`Return Date:      ${new Date(tx.returnDate).toLocaleDateString("en-IN")}`);
+    }
+
+    doc.moveDown(1);
+    doc.text(`Overdue Fine:     Rs. ${tx.overdueFine || 0}`);
+    doc.text(`Damage Fine:      Rs. ${tx.damageFine || 0}`);
+    if (tx.damageNotes) {
+      doc.text(`Damage Notes:     ${tx.damageNotes}`);
+    }
+    
+    doc.moveDown(1);
+    doc.fontSize(13).text(`Total Paid:       Rs. ${tx.totalFine || 0}`, { font: "Helvetica-Bold", color: "#EF4444" });
+    doc.fontSize(11).font("Helvetica").fillColor("#222222");
+
+    if (tx.verified) {
+      doc.moveDown(1.5);
+      doc.strokeColor("#dddddd").lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(1.5);
+
+      const verifier = await Account.findById(tx.verifiedBy);
+      doc.text(`Verified By:      ${verifier ? verifier.name : "System Administrator"}`);
+      doc.text(`Verified At:      ${tx.verifiedAt ? new Date(tx.verifiedAt).toLocaleString("en-IN") : "N/A"}`);
+    }
+
+    doc.moveDown(4);
+    doc.fontSize(9).fillColor("#999999").text("This is a computer-generated document and does not require a physical signature.", { align: "center", italic: true });
+
+    doc.end();
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

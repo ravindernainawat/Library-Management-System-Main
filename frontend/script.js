@@ -1055,41 +1055,73 @@ function renderBorrowingHistory() {
 
 function renderMyFines() {
   var user = getCurrentUser(); if (!user) return;
-  apiGet("/transactions/history/" + encodeURIComponent(user.name) + "?limit=1000").then(function (res) {
-    var txs = Array.isArray(res) ? res : (res.data || []);
-    var fineTxs = Array.isArray(txs) ? txs.filter(function(t) { return t.fine > 0 || t.damageFine > 0 || t.totalFine > 0; }) : [];
-    
-    var tb = document.getElementById("my-fines-table-body");
-    
-    if (fineTxs.length === 0) { 
-      if(tb) tb.innerHTML = '<tr><td colspan="7" class="empty-state"><p>You have no fines! 🎉</p></td></tr>'; 
-      var fTot = document.getElementById("my-fine-total"); if(fTot) fTot.textContent = "₹0";
-      var fPaid = document.getElementById("my-fine-paid"); if(fPaid) fPaid.textContent = "₹0";
-      var fUnpd = document.getElementById("my-fine-unpaid"); if(fUnpd) fUnpd.textContent = "₹0";
-      return; 
-    }
-    
-    var grandTotal = 0;
-    var totalPaid = 0;
-    
-    if(tb) tb.innerHTML = fineTxs.map(function (t) {
-      var overdueFine = t.overdueFine || t.fine || 0;
-      var damageFine = t.damageFine || 0;
-      var totalFine = t.totalFine || (overdueFine + damageFine);
-      
-      grandTotal += totalFine;
-      var isPaid = t.finePaid || t.fineStatus === "paid";
-      if (isPaid) { totalPaid += totalFine; }
-      
-      var statusBadge = isPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-danger">Unpaid</span>';
-      var actionBtn = isPaid ? '<span style="color:var(--text-muted)">--</span>' : '<button class="btn btn-primary btn-sm" onclick="payFineOnline(\'' + (t._id || t.id) + '\', ' + totalFine + ')">Pay Now</button>';
-      
-      return "<tr><td>" + t.bookTitle + "</td><td>₹" + overdueFine + "</td><td>₹" + damageFine + "</td><td><strong>₹" + totalFine + "</strong></td><td>" + statusBadge + "</td><td>" + (t.paymentMethod || "-") + "</td><td>" + actionBtn + "</td></tr>";
-    }).join("");
-    
-    var fTot2 = document.getElementById("my-fine-total"); if(fTot2) fTot2.textContent = "₹" + grandTotal;
-    var fPaid2 = document.getElementById("my-fine-paid"); if(fPaid2) fPaid2.textContent = "₹" + totalPaid;
-    var fUnpd2 = document.getElementById("my-fine-unpaid"); if(fUnpd2) fUnpd2.textContent = "₹" + (grandTotal - totalPaid);
+  apiGet("/transactions/fines/unpaid").then(function(res) {
+    var unpaidTxs = res.success ? (res.data || []) : [];
+    apiGet("/transactions/fines/history").then(function(hres) {
+      var allTxs = hres.success ? (hres.data || []) : [];
+
+      var tb = document.getElementById("my-fines-table-body");
+
+      if (allTxs.length === 0 && unpaidTxs.length === 0) {
+        if (tb) tb.innerHTML = '<tr><td colspan="8" class="empty-state"><p>You have no fines! 🎉</p></td></tr>';
+        var fTot = document.getElementById("my-fine-total"); if (fTot) fTot.textContent = "₹0";
+        var fPaid = document.getElementById("my-fine-paid"); if (fPaid) fPaid.textContent = "₹0";
+        var fUnpd = document.getElementById("my-fine-unpaid"); if (fUnpd) fUnpd.textContent = "₹0";
+        return;
+      }
+
+      var grandTotal = 0;
+      var totalPaid = 0;
+
+      // Merge: show unpaid first, then paid history (deduplicate by _id)
+      var seenIds = {};
+      var combined = [];
+      unpaidTxs.forEach(function(t) { seenIds[t._id] = true; combined.push(t); });
+      allTxs.forEach(function(t) { if (!seenIds[t._id]) combined.push(t); });
+
+      if (tb) tb.innerHTML = combined.map(function(t) {
+        var overdueFine = t.overdueFine || t.fine || 0;
+        var damageFine = t.damageFine || 0;
+        var totalFine = t.totalFine || (overdueFine + damageFine);
+        grandTotal += totalFine;
+
+        var isPaid = t.fineStatus === "paid";
+        if (isPaid) { totalPaid += totalFine; }
+
+        var statusBadge;
+        if (!isPaid) {
+          statusBadge = '<span class="badge badge-danger">Unpaid</span>';
+        } else if (t.verified) {
+          statusBadge = '<span class="verified-badge">✓ Verified</span>';
+        } else {
+          statusBadge = '<span class="verify-pending-badge">⏳ Pending</span>';
+        }
+
+        var methodLabel = t.paymentMethod && t.paymentMethod !== "none" ? t.paymentMethod.toUpperCase() : "-";
+
+        var actionHtml;
+        if (!isPaid) {
+          actionHtml = '<button class="btn btn-primary btn-sm" onclick="payFineOnline(\'' + (t._id || t.id) + '\', ' + totalFine + ')">💳 Pay Now</button>';
+        } else {
+          actionHtml = '<button class="receipt-dl-btn" onclick="downloadReceipt(\'' + (t._id || t.id) + '\')" title="Download Receipt">⬇ Receipt</button>';
+        }
+
+        return '<tr>' +
+          '<td>' + (t.bookTitle || '-') + '</td>' +
+          '<td>₹' + overdueFine + '</td>' +
+          '<td>₹' + damageFine + '</td>' +
+          '<td><strong>₹' + totalFine + '</strong></td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' + methodLabel + '</td>' +
+          '<td>' + (t.paymentDate ? formatDate(t.paymentDate) : '-') + '</td>' +
+          '<td>' + actionHtml + '</td>' +
+          '</tr>';
+      }).join("");
+
+      var fTot2 = document.getElementById("my-fine-total"); if (fTot2) fTot2.textContent = "₹" + grandTotal;
+      var fPaid2 = document.getElementById("my-fine-paid"); if (fPaid2) fPaid2.textContent = "₹" + totalPaid;
+      var fUnpd2 = document.getElementById("my-fine-unpaid"); if (fUnpd2) fUnpd2.textContent = "₹" + (grandTotal - totalPaid);
+    });
   });
 }
 
@@ -1432,17 +1464,56 @@ function reportCard(val, label, color, targetSection) {
 // ============ FINE REPORT & ACTIVITY LOGS ============
 function renderFineReport() {
   if (!isAdmin()) return;
-  apiGet("/reports/fines").then(function (d) {
-    document.getElementById("fine-grand-total").textContent = "\u20B9" + d.grandTotal;
-    var paid = document.getElementById("fine-total-paid"); if (paid) paid.textContent = "\u20B9" + (d.totalPaid||0);
-    var unpaid = document.getElementById("fine-total-unpaid"); if (unpaid) unpaid.textContent = "\u20B9" + (d.totalUnpaid||0);
+  // Read optional filter values from dropdowns
+  var statusFilter = (document.getElementById("admin-fine-status") || {}).value || "all";
+  var methodFilter = (document.getElementById("admin-fine-method") || {}).value || "all";
+  var qs = "?status=" + statusFilter + "&method=" + methodFilter;
+  apiGet("/features/reports/fines" + qs).then(function(d) {
+    var grandEl = document.getElementById("fine-grand-total"); if (grandEl) grandEl.textContent = "₹" + (d.grandTotal || 0);
+    var paidEl = document.getElementById("fine-total-paid"); if (paidEl) paidEl.textContent = "₹" + (d.totalPaid || 0);
+    var unpaidEl = document.getElementById("fine-total-unpaid"); if (unpaidEl) unpaidEl.textContent = "₹" + (d.totalUnpaid || 0);
     var tb = document.getElementById("fines-table-body");
-    if (!d.records || d.records.length === 0) { tb.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No fines.</p></td></tr>'; return; }
-    tb.innerHTML = d.records.map(function (r) {
-      var statusBadge = r.fineStatus === "paid" ? '<span class="badge badge-paid">Paid</span>' : '<span class="badge badge-unpaid">Unpaid</span>';
-      var action = r.fineStatus !== "paid" && r.txId ? '<button class="btn btn-success btn-sm" onclick="openPaymentModal(\'' + r.txId + "', " + r.totalFine + ')\'>Record Payment</button>' : "--";
-      var notes = r.damageNotes ? r.damageNotes : "--";
-      return "<tr><td>" + r.userName + "</td><td>" + r.bookTitle + "</td><td>" + formatDate(r.dueDate) + "</td><td>\u20B9" + (r.overdueFine||0) + "</td><td>\u20B9" + (r.damageFine||0) + "</td><td><strong style='color:var(--danger)'>\u20B9" + r.totalFine + "</strong></td><td>" + statusBadge + "</td><td>" + notes + "</td><td>" + action + "</td></tr>";
+    if (!tb) return;
+    if (!d.records || d.records.length === 0) {
+      tb.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No fines match the selected filters.</p></td></tr>';
+      return;
+    }
+    tb.innerHTML = d.records.map(function(r) {
+      var statusBadge;
+      if (r.fineStatus !== "paid") {
+        statusBadge = '<span class="badge badge-danger">Unpaid</span>';
+      } else if (r.verified) {
+        statusBadge = '<span class="verified-badge">✓ Verified</span>';
+      } else {
+        statusBadge = '<span class="verify-pending-badge">⏳ Pending</span>';
+      }
+
+      var actionHtml;
+      if (r.fineStatus !== "paid") {
+        actionHtml = '<button class="btn btn-success btn-sm" onclick="openPaymentModal(\'' + r.txId + '\', ' + r.totalFine + ')" style="white-space:nowrap">💵 Record</button>';
+      } else {
+        var verifyBtn = !r.verified
+          ? '<button class="btn btn-primary btn-sm" onclick="verifyOnlinePayment(\'' + r.txId + '\')" style="white-space:nowrap">✓ Verify</button> '
+          : '';
+        var receiptBtn = '<button class="receipt-dl-btn" onclick="downloadReceipt(\'' + r.txId + '\')" title="Download Receipt">⬇ Receipt</button>';
+        actionHtml = verifyBtn + receiptBtn;
+      }
+
+      var notes = r.damageNotes ? r.damageNotes : "-";
+      var method = r.paymentMethod && r.paymentMethod !== "none" ? r.paymentMethod.toUpperCase() : "-";
+
+      return '<tr>' +
+        '<td>' + r.userName + '</td>' +
+        '<td>' + r.bookTitle + '</td>' +
+        '<td>' + formatDate(r.dueDate) + '</td>' +
+        '<td>₹' + (r.overdueFine || 0) + '</td>' +
+        '<td>₹' + (r.damageFine || 0) + '</td>' +
+        '<td><strong style="color:var(--danger)">₹' + r.totalFine + '</strong></td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td>' + method + '</td>' +
+        '<td>' + notes + '</td>' +
+        '<td style="white-space:nowrap">' + actionHtml + '</td>' +
+        '</tr>';
     }).join("");
   });
 }
@@ -1729,19 +1800,310 @@ function renewBook(id) {
   });
 }
 
+var currentPaymentTxId = null;
+var currentPaymentAmount = 0;
+var selectedPaymentMethod = null;
+
+function closePaymentModal() {
+  var modal = document.getElementById("paymentModal");
+  if (modal) modal.style.display = "none";
+  currentPaymentTxId = null;
+  currentPaymentAmount = 0;
+  selectedPaymentMethod = null;
+}
+
+function selectPaymentMethod(method) {
+  selectedPaymentMethod = method;
+  document.querySelectorAll(".payment-method-btn").forEach(function(btn) {
+    btn.classList.remove("selected");
+    if (btn.dataset.method === method) { btn.classList.add("selected"); }
+  });
+  
+  var panel = document.getElementById("paymentDetailsPanel");
+  if (!panel) return;
+  
+  if (method === "card") {
+    panel.innerHTML = 
+      '<div class="payment-form-group">' +
+        '<label>Card Number</label>' +
+        '<input type="text" id="cardNo" placeholder="4111 1111 1111 1111" maxlength="19" oninput="formatCardNumber(this)">' +
+      '</div>' +
+      '<div style="display:flex; gap:12px;">' +
+        '<div class="payment-form-group" style="flex:1;">' +
+          '<label>Expiry Date</label>' +
+          '<input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" oninput="formatExpiry(this)">' +
+        '</div>' +
+        '<div class="payment-form-group" style="flex:1;">' +
+          '<label>CVV</label>' +
+          '<input type="password" id="cardCvv" placeholder="***" maxlength="3">' +
+        '</div>' +
+      '</div>';
+  } else if (method === "upi") {
+    panel.innerHTML = 
+      '<div class="payment-qr-container">' +
+        '<p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Scan QR with any UPI app</p>' +
+        '<img class="payment-qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent('upi://pay?pa=booksphere@upi&pn=BookSphere&am=' + currentPaymentAmount + '&cu=INR') + '" alt="UPI QR">' +
+        '<div class="payment-form-group" style="width:100%; text-align:left; margin-top:8px;">' +
+          '<label>Or enter UPI ID</label>' +
+          '<input type="text" id="upiId" placeholder="username@okaxis">' +
+        '</div>' +
+      '</div>';
+  } else if (method === "net_banking") {
+    panel.innerHTML = 
+      '<div class="payment-form-group">' +
+        '<label>Select Bank</label>' +
+        '<select id="bankSelect" style="padding: 10px 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: var(--text-primary); font-family: Inter, sans-serif; width: 100%;">' +
+          '<option value="">-- Select Bank --</option>' +
+          '<option value="sbi">State Bank of India</option>' +
+          '<option value="hdfc">HDFC Bank</option>' +
+          '<option value="icici">ICICI Bank</option>' +
+          '<option value="axis">Axis Bank</option>' +
+          '<option value="pnb">Punjab National Bank</option>' +
+        '</select>' +
+      '</div>';
+  } else if (method === "cash") {
+    panel.innerHTML = 
+      '<div class="payment-form-group">' +
+        '<label>Receiver Notes</label>' +
+        '<input type="text" id="cashNotes" placeholder="Received at Front Desk" value="Received at Front Desk">' +
+      '</div>' +
+      '<p style="font-size:0.85rem;color:#10B981;margin:0;text-align:center;font-weight:600;">✓ Instantly recorded & verified in system</p>';
+  }
+}
+
+function formatCardNumber(el) {
+  var v = el.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  var matches = v.match(/\d{4,16}/g);
+  var match = matches && matches[0] || '';
+  var parts = [];
+  for (var i=0, len=match.length; i<len; i+=4) { parts.push(match.substring(i, i+4)); }
+  if (parts.length > 0) { el.value = parts.join(' '); } else { el.value = v; }
+}
+
+function formatExpiry(el) {
+  var v = el.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  if (v.length >= 2) { el.value = v.substring(0,2) + '/' + v.substring(2,4); } else { el.value = v; }
+}
+
 function payFineOnline(txId, amount) {
-  showToast("Redirecting to secure payment gateway...", "info");
+  currentPaymentTxId = txId;
+  currentPaymentAmount = amount;
+  selectedPaymentMethod = null;
+  
+  var modal = document.getElementById("paymentModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  
+  var title = document.getElementById("paymentModalTitle");
+  if (title) title.textContent = "Secure Payment Gateway";
+
+  var body = document.getElementById("paymentModalBody");
+  if (!body) return;
+  
+  body.innerHTML = 
+    '<div class="payment-amount-box">' +
+      '<div class="payment-amount-label">Amount Outstanding</div>' +
+      '<div class="payment-amount-value">₹' + amount + '</div>' +
+    '</div>' +
+    '<h4 style="margin-bottom:12px;color:var(--text-secondary);font-size:0.9rem;">Select Payment Method</h4>' +
+    '<div class="payment-methods-grid">' +
+      '<div class="payment-method-btn" data-method="upi" onclick="selectPaymentMethod(\'upi\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><rect x="2" y="2" width="20" height="20" rx="4"/><path d="M12 7v10M7 12h10"/></svg>' +
+        '<span>UPI</span>' +
+      '</div>' +
+      '<div class="payment-method-btn" data-method="card" onclick="selectPaymentMethod(\'card\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' +
+        '<span>Card</span>' +
+      '</div>' +
+      '<div class="payment-method-btn" data-method="net_banking" onclick="selectPaymentMethod(\'net_banking\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>' +
+        '<span>Net Banking</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="payment-details-panel" id="paymentDetailsPanel">' +
+      '<p style="color:var(--text-muted);text-align:center;margin-top:20px;font-size:0.85rem;">Select a method above to enter details.</p>' +
+    '</div>' +
+    '<button class="btn btn-primary" style="width:100%;height:44px;font-size:1rem;margin-top:10px;" onclick="submitPayment()">Confirm Payment</button>';
+}
+
+function openPaymentModal(txId, totalFine) {
+  currentPaymentTxId = txId;
+  currentPaymentAmount = totalFine;
+  selectedPaymentMethod = null;
+  
+  var modal = document.getElementById("paymentModal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  
+  var title = document.getElementById("paymentModalTitle");
+  if (title) title.textContent = "Receive Fine Payment";
+
+  var body = document.getElementById("paymentModalBody");
+  if (!body) return;
+  
+  body.innerHTML = 
+    '<div class="payment-amount-box">' +
+      '<div class="payment-amount-label">Fine to Receive</div>' +
+      '<div class="payment-amount-value">₹' + totalFine + '</div>' +
+    '</div>' +
+    '<h4 style="margin-bottom:12px;color:var(--text-secondary);font-size:0.9rem;">Select Payment Method</h4>' +
+    '<div class="payment-methods-grid">' +
+      '<div class="payment-method-btn" data-method="cash" onclick="selectPaymentMethod(\'cash\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>' +
+        '<span>Cash</span>' +
+      '</div>' +
+      '<div class="payment-method-btn" data-method="upi" onclick="selectPaymentMethod(\'upi\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><rect x="2" y="2" width="20" height="20" rx="4"/><path d="M12 7v10M7 12h10"/></svg>' +
+        '<span>UPI</span>' +
+      '</div>' +
+      '<div class="payment-method-btn" data-method="card" onclick="selectPaymentMethod(\'card\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' +
+        '<span>Card</span>' +
+      '</div>' +
+      '<div class="payment-method-btn" data-method="net_banking" onclick="selectPaymentMethod(\'net_banking\')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;margin-bottom:4px;"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>' +
+        '<span>Net Banking</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="payment-details-panel" id="paymentDetailsPanel">' +
+      '<p style="color:var(--text-muted);text-align:center;margin-top:20px;font-size:0.85rem;">Select a method above to enter details.</p>' +
+    '</div>' +
+    '<button class="btn btn-primary" style="width:100%;height:44px;font-size:1rem;margin-top:10px;" onclick="submitPaymentAdmin()">Record Payment</button>';
+}
+
+function submitPayment() {
+  if (!selectedPaymentMethod) { showToast("Please select a payment method", "error"); return; }
+  
+  if (selectedPaymentMethod === "card") {
+    var cardNo = document.getElementById("cardNo").value.trim();
+    var expiry = document.getElementById("cardExpiry").value.trim();
+    var cvv = document.getElementById("cardCvv").value.trim();
+    if (!cardNo || cardNo.length < 16) { showToast("Invalid Card Number", "error"); return; }
+    if (!expiry || expiry.length < 5) { showToast("Invalid Expiration Date", "error"); return; }
+    if (!cvv || cvv.length < 3) { showToast("Invalid CVV", "error"); return; }
+  } else if (selectedPaymentMethod === "upi") {
+    var upiId = document.getElementById("upiId").value.trim();
+    if (!upiId || !upiId.includes("@")) { showToast("Invalid UPI ID. Should be like user@okaxis", "error"); return; }
+  } else if (selectedPaymentMethod === "net_banking") {
+    var bank = document.getElementById("bankSelect").value;
+    if (!bank) { showToast("Please select a bank", "error"); return; }
+  }
+  
+  var body = document.getElementById("paymentModalBody");
+  body.innerHTML = 
+    '<div class="payment-loading-wrap">' +
+      '<div class="payment-spinner"></div>' +
+      '<h4 style="color:var(--text-primary);margin-bottom:8px;">Processing Payment...</h4>' +
+      '<p style="color:var(--text-muted);font-size:0.8rem;margin:0;">Connecting to secure gateway. Do not close this window.</p>' +
+    '</div>';
+    
   setTimeout(function() {
-    var confirmPay = confirm("🔒 Stripe Secure Payment (Mock)\n\nAmount due: ₹" + amount + "\n\nClick OK to simulate a successful payment.");
-    if (confirmPay) {
-      apiPost("/transactions/pay-fine/" + txId, { amount: amount }).then(function(d) {
-         if (d.success) { showToast("Payment successful! Fine cleared.", "success"); renderTransactions(); renderMyFines(); renderFineReport(); }
-         else { showToast(d.message, "error"); }
-      });
+    apiPost("/transactions/pay-fine/" + currentPaymentTxId, { 
+      amount: currentPaymentAmount, 
+      paymentMethod: selectedPaymentMethod 
+    }).then(function(d) {
+      closePaymentModal();
+      if (d.success) {
+        showToast("Payment Successful! Fine is cleared and pending verification.", "success");
+        renderTransactions();
+        renderMyFines();
+        updateDashboardStats();
+      } else {
+        showToast(d.message || "Payment failed.", "error");
+      }
+    }).catch(function(err) {
+      closePaymentModal();
+      showToast("Error connecting to server. Payment cancelled.", "error");
+    });
+  }, 2000);
+}
+
+function submitPaymentAdmin() {
+  if (!selectedPaymentMethod) { showToast("Please select a payment method", "error"); return; }
+  
+  if (selectedPaymentMethod === "card") {
+    var cardNo = document.getElementById("cardNo").value.trim();
+    var expiry = document.getElementById("cardExpiry").value.trim();
+    var cvv = document.getElementById("cardCvv").value.trim();
+    if (!cardNo || cardNo.length < 16) { showToast("Invalid Card Number", "error"); return; }
+    if (!expiry || expiry.length < 5) { showToast("Invalid Expiration Date", "error"); return; }
+    if (!cvv || cvv.length < 3) { showToast("Invalid CVV", "error"); return; }
+  } else if (selectedPaymentMethod === "upi") {
+    var upiId = document.getElementById("upiId").value.trim();
+    if (!upiId || !upiId.includes("@")) { showToast("Invalid UPI ID. Should be like user@okaxis", "error"); return; }
+  } else if (selectedPaymentMethod === "net_banking") {
+    var bank = document.getElementById("bankSelect").value;
+    if (!bank) { showToast("Please select a bank", "error"); return; }
+  }
+
+  var body = document.getElementById("paymentModalBody");
+  body.innerHTML = 
+    '<div class="payment-loading-wrap">' +
+      '<div class="payment-spinner"></div>' +
+      '<h4 style="color:var(--text-primary);margin-bottom:8px;">Recording Payment...</h4>' +
+      '<p style="color:var(--text-muted);font-size:0.8rem;margin:0;">Saving transaction in database...</p>' +
+    '</div>';
+    
+  setTimeout(function() {
+    apiPut("/transactions/" + currentPaymentTxId + "/pay", { 
+      paymentMethod: selectedPaymentMethod, 
+      paidBy: getCurrentUser().name 
+    }).then(function(d) {
+      closePaymentModal();
+      if (d.success) {
+        showToast("Payment recorded and verified successfully!", "success");
+        renderTransactions();
+        renderFineReport();
+        updateDashboardStats();
+      } else {
+        showToast(d.message || "Recording payment failed.", "error");
+      }
+    }).catch(function(err) {
+      closePaymentModal();
+      showToast("Error connecting to server.", "error");
+    });
+  }, 1500);
+}
+
+function verifyOnlinePayment(txId) {
+  showToast("Verifying payment...", "info");
+  apiPut("/transactions/verify-fine/" + txId).then(function(d) {
+    if (d.success) {
+      showToast("Payment verified successfully!", "success");
+      renderTransactions();
+      renderFineReport();
+      updateDashboardStats();
     } else {
-      showToast("Payment cancelled.", "info");
+      showToast(d.message || "Verification failed.", "error");
     }
-  }, 1000);
+  }).catch(function(err) {
+    showToast("Error connecting to server.", "error");
+  });
+}
+
+function downloadReceipt(txId) {
+  showToast("Generating receipt PDF...", "info");
+  fetch(API_BASE + "/transactions/receipt/" + txId, {
+    headers: getAuthHeaders()
+  })
+  .then(function(res) {
+    if (!res.ok) throw new Error("Receipt download failed");
+    return res.blob();
+  })
+  .then(function(blob) {
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "Receipt-" + txId + ".pdf";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast("Receipt downloaded successfully!", "success");
+  })
+  .catch(function(err) {
+    showToast("Download failed: " + err.message, "error");
+  });
 }
 
 // ============ DIGITAL LIBRARY ============
@@ -2284,18 +2646,6 @@ function completeExchange(id) {
     });
 }
 
-// ============ PAYMENT MANAGEMENT ============
-function openPaymentModal(txId, totalFine) {
-  var method = prompt("Payment method for ₹" + totalFine + "?\n1. cash\n2. upi\n3. online\n\nEnter method:");
-  if (!method) return;
-  method = method.toLowerCase().trim();
-  if (!["cash","upi","online"].includes(method)) { showToast("Invalid method. Use: cash, upi, or online", "error"); return; }
-  apiPut("/transactions/" + txId + "/pay", { paymentMethod: method, paidBy: getCurrentUser().name })
-    .then(function(d) {
-      if (d.success) { showToast("₹" + d.totalFine + " paid via " + d.paymentMethod + "!", "success"); renderFineReport(); renderTransactions(); }
-      else showToast(d.message, "error");
-    });
-}
 
 // ============ PROFILE MANAGEMENT ============
 function renderProfile() {

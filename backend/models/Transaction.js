@@ -17,8 +17,14 @@ const transactionSchema = new mongoose.Schema({
   damageNotes: { type: String, default: "" },
   totalFine: { type: Number, default: 0 },
   fineStatus: { type: String, enum: ["none", "unpaid", "paid"], default: "none" },
-  paymentMethod: { type: String, enum: ["none", "cash", "upi", "online"], default: "none" },
+  paymentStatus: { type: String, enum: ["none", "pending", "completed", "failed"], default: "none" },
+  paymentMethod: { type: String, enum: ["none", "cash", "upi", "card", "net_banking", "online"], default: "none" },
   paymentDate: { type: Date, default: null },
+  transactionId: { type: String, default: "" },
+  verified: { type: Boolean, default: false },
+  verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null },
+  verifiedAt: { type: Date, default: null },
+  receiptNumber: { type: String, default: "" },
   renewed: { type: Boolean, default: false }
 }, { timestamps: true });
 
