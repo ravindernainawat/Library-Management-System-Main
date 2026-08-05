@@ -55,6 +55,19 @@
     <div class="modal-content" id="borrowersContent"></div>
   </div>
 
+  <!-- FINE PAYMENT MODAL -->
+  <div class="modal-overlay" id="paymentModal" style="display:none;">
+    <div class="modal-content" style="max-width: 480px; padding: 24px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+        <h3 class="modal-title" id="paymentModalTitle" style="margin: 0; font-size: 1.3rem; color: var(--text-primary);">Secure Payment Gateway</h3>
+        <button class="modal-close" onclick="closePaymentModal()" style="font-size: 1.8rem; line-height: 1; border: none; background: none; color: var(--text-muted); cursor: pointer;">×</button>
+      </div>
+      <div class="modal-body" id="paymentModalBody">
+        <!-- Will be populated dynamically via JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Sidebar Overlay (mobile) -->
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
@@ -636,8 +649,8 @@
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>Book</th><th>Overdue Fine</th><th>Damage Fine</th><th>Total</th><th>Status</th><th>Paid Via</th><th>Actions</th></tr></thead>
-            <tbody id="my-fines-table-body"><tr><td colspan="7" class="empty-state"><p>You have no fines! 🎉</p></td></tr></tbody>
+            <thead><tr><th>Book</th><th>Overdue Fine</th><th>Damage Fine</th><th>Total</th><th>Status</th><th>Paid Via</th><th>Paid Date</th><th>Actions</th></tr></thead>
+            <tbody id="my-fines-table-body"><tr><td colspan="8" class="empty-state"><p>You have no fines! 🎉</p></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -861,15 +874,31 @@
         </div>
       </div>
       <div class="glass-panel">
-        <div style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap;">
-          <span>💰 Total: <strong id="fine-grand-total" style="color:var(--danger)">₹0</strong></span>
-          <span>✅ Paid: <strong id="fine-total-paid" style="color:var(--success)">₹0</strong></span>
-          <span>⏳ Unpaid: <strong id="fine-total-unpaid" style="color:var(--warning)">₹0</strong></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            <span>💰 Total: <strong id="fine-grand-total" style="color:var(--danger)">₹0</strong></span>
+            <span>✅ Paid: <strong id="fine-total-paid" style="color:var(--success)">₹0</strong></span>
+            <span>⏳ Unpaid: <strong id="fine-total-unpaid" style="color:var(--warning)">₹0</strong></span>
+          </div>
+          <div class="history-filters">
+            <select id="admin-fine-status" class="history-filter-select" onchange="renderFineReport()">
+              <option value="all">All Statuses</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="paid">Paid</option>
+            </select>
+            <select id="admin-fine-method" class="history-filter-select" onchange="renderFineReport()">
+              <option value="all">All Methods</option>
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+              <option value="net_banking">Net Banking</option>
+            </select>
+          </div>
         </div>
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>User</th><th>Book</th><th>Due Date</th><th>Overdue Fine</th><th>Damage Fine</th><th>Total</th><th>Status</th><th>Notes</th><th>Actions</th></tr></thead>
-            <tbody id="fines-table-body"><tr><td colspan="8" class="empty-state"><p>No fines recorded.</p></td></tr></tbody>
+            <thead><tr><th>User</th><th>Book</th><th>Due Date</th><th>Overdue Fine</th><th>Damage Fine</th><th>Total</th><th>Status</th><th>Method</th><th>Notes</th><th>Actions</th></tr></thead>
+            <tbody id="fines-table-body"><tr><td colspan="10" class="empty-state"><p>No fines recorded.</p></td></tr></tbody>
           </table>
         </div>
       </div>

@@ -30,6 +30,7 @@
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.3",
     "resend": "^6.12.4",
-    "xss-clean": "^0.1.4"
+    "socket.io": "^4.8.3",
+    "express-xss-sanitizer": "^1.2.0"
   }
 }

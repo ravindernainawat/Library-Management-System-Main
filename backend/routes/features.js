@@ -296,12 +296,11 @@ router.put("/exchanges/:id/complete", async (req, res) => {
 // Fine overview
 router.get("/reports/fines", verifyAdmin, async (req, res) => {
   try {
-    const now = new Date();
     const allTx = await Transaction.find();
-    const fineRecords = [];
+    let fineRecords = [];
     for (const t of allTx) {
       const fine = calcFine(t);
-      if (fine > 0 || t.damageFine > 0) {
+      if (fine > 0 || t.damageFine > 0 || t.fineStatus === "paid") {
         const book = await Book.findById(t.bookId);
         fineRecords.push({
           txId: t._id, userName: t.userName, bookTitle: book ? book.title : "Deleted",
@@ -309,10 +308,22 @@ router.get("/reports/fines", verifyAdmin, async (req, res) => {
           status: t.status, overdueFine: t.overdueFine || fine, damageFine: t.damageFine || 0,
           totalFine: t.totalFine || (fine + (t.damageFine||0)), damageNotes: t.damageNotes||"",
           fineStatus: t.fineStatus || (fine > 0 ? "unpaid" : "none"),
-          paymentMethod: t.paymentMethod || "none", paymentDate: t.paymentDate
+          paymentMethod: t.paymentMethod || "none", paymentDate: t.paymentDate,
+          verified: t.verified || false
         });
       }
     }
+
+    // Apply query filters
+    const { status, method } = req.query;
+    if (status && status !== "all") {
+      if (status === "paid") fineRecords = fineRecords.filter(r => r.fineStatus === "paid");
+      else if (status === "unpaid") fineRecords = fineRecords.filter(r => r.fineStatus !== "paid");
+    }
+    if (method && method !== "all") {
+      fineRecords = fineRecords.filter(r => r.paymentMethod === method);
+    }
+
     const grandTotal = fineRecords.reduce((s,r) => s + r.totalFine, 0);
     const totalPaid = fineRecords.filter(r => r.fineStatus === "paid").reduce((s,r) => s + r.totalFine, 0);
     const totalUnpaid = grandTotal - totalPaid;

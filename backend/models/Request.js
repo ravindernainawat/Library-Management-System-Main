@@ -9,4 +9,9 @@ const requestSchema = new mongoose.Schema({
   requestDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+requestSchema.index({ status: 1 });
+requestSchema.index({ bookId: 1 });
+requestSchema.index({ userName: 1 });
+requestSchema.index({ updatedAt: -1 });
+
 module.exports = mongoose.model("Request", requestSchema);

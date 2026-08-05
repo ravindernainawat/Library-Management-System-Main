@@ -2567,6 +2567,193 @@ body.light-mode .pagination-limit-wrap select {
   .pagination-btn { padding: 6px 12px; font-size: 0.78rem; }
 }
 
+/* ==========================================================================
+   🔒 FINE PAYMENT SYSTEM PREMIUM CLASS STYLES
+   ========================================================================== */
+.payment-amount-box {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.payment-amount-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 4px;
+}
+.payment-amount-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.payment-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.payment-method-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+.payment-method-btn svg {
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+  transition: color 0.3s;
+}
+.payment-method-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
+}
+.payment-method-btn.selected {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.25);
+}
+.payment-method-btn.selected svg {
+  color: var(--accent);
+}
+.payment-details-panel {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  min-height: 120px;
+  animation: fadeIn 0.3s ease;
+}
+.payment-form-group {
+  margin-bottom: 12px;
+}
+.payment-form-group label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.payment-form-group input, .payment-form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  font-family: Inter, sans-serif;
+  font-size: 0.9rem;
+}
+.payment-form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.2);
+}
+.payment-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.payment-qr-img {
+  width: 130px;
+  height: 130px;
+  background: white;
+  padding: 8px;
+  border-radius: 8px;
+}
+.payment-loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+.payment-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(139, 92, 246, 0.1);
+  border-left-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.receipt-dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.receipt-dl-btn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10B981;
+}
+.verify-pending-badge {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.verified-badge {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10B981;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.history-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.history-filter-select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0,0,0,0.3);
+  color: var(--text-primary);
+  font-family: Inter, sans-serif;
+  font-size: 0.85rem;
+}
+
 /* end of style.css */
 
 

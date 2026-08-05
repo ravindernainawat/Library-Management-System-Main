@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy root package.json
 COPY package.json ./
 
+# Disable downloading of MongoDB binaries by mongodb-memory-server during install
+ENV MONGOMS_DISABLE_POSTINSTALL=1
+
 # Install dependencies (excluding devDependencies to make builds fast and light)
 # This will also prevent heavy mongodb-memory-server downloads during production build if env is set
 RUN npm install --omit=dev

@@ -23,8 +23,9 @@ const authLimiter = rateLimit({
 // SEND REGISTER OTP
 router.post("/send-register-otp", authLimiter, async (req, res) => {
   try {
-    const { email, role } = req.body;
+    let { email, role } = req.body;
     if (!email || !role) return res.status(400).json({ message: "Email and role required." });
+    email = email.trim().toLowerCase();
 
     // Owner is a unique seeded account — registration via this endpoint is forbidden
     if (role === "owner") {
@@ -37,7 +38,8 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
     }
     
     const isCollegeEmail = email.toLowerCase().endsWith('@krmu.edu.in');
-    const isOwnerEmail = email.toLowerCase() === 'ravindernainawat007@gmail.com';
+    const ownerEmailConfig = (process.env.OWNER_EMAIL || "owner@booksphere.com").toLowerCase();
+    const isOwnerEmail = email.toLowerCase() === ownerEmailConfig;
     if (!isCollegeEmail && !isOwnerEmail) {
       return res.status(400).json({ success: false, message: "Registration is restricted to college email addresses (@krmu.edu.in)." });
     }
@@ -84,8 +86,9 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
 // REGISTER
 router.post("/register", validateRegister, async (req, res) => {
   try {
-    const { name, email, password, role, otp } = req.body;
+    let { name, email, password, role, otp } = req.body;
     if (!name || !email || !password || !role || !otp) return res.status(400).json({ message: "All fields including OTP are required." });
+    email = email.trim().toLowerCase();
 
     // Owner is a unique seeded account — registration via this endpoint is forbidden
     if (role === "owner") {
@@ -99,6 +102,13 @@ router.post("/register", validateRegister, async (req, res) => {
     const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
     if (!otpRecord || otpRecord.otp !== otp) {
       return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+    }
+    
+    // Explicit expiry check — MongoDB TTL cleanup can be delayed up to 60s
+    const otpAgeMs = Date.now() - new Date(otpRecord.createdAt).getTime();
+    if (otpAgeMs > 10 * 60 * 1000) {
+      await OTP.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one." });
     }
     
     // Admin accounts need owner approval
@@ -130,8 +140,9 @@ router.post("/register", validateRegister, async (req, res) => {
 // LOGIN
 router.post("/login", authLimiter, validateLogin, async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    let { email, password, role } = req.body;
     if (!email || !password || !role) return res.status(400).json({ message: "Email, password and role required." });
+    email = email.trim().toLowerCase();
     const account = await Account.findOne({ email: email.toLowerCase(), role });
     if (!account) {
       const partial = await Account.findOne({ email: email.toLowerCase() });
@@ -214,8 +225,9 @@ router.post("/verify-login-otp", authLimiter, async (req, res) => {
 // FORGOT PASSWORD OTP
 router.post("/forgot-password-otp", authLimiter, async (req, res) => {
   try {
-    const { email, role } = req.body;
+    let { email, role } = req.body;
     if (!email || !role) return res.status(400).json({ message: "Email and role required." });
+    email = email.trim().toLowerCase();
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -263,8 +275,9 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
 // RESET PASSWORD
 router.post("/reset-password", authLimiter, async (req, res) => {
   try {
-    const { email, role, otp, newPassword } = req.body;
+    let { email, role, otp, newPassword } = req.body;
     if (!email || !role || !otp || !newPassword) return res.status(400).json({ message: "Email, role, OTP, and new password required." });
+    email = email.trim().toLowerCase();
 
     const account = await Account.findOne({ email: email.toLowerCase(), role });
     if (!account) return res.status(404).json({ success: false, message: "Account not found." });
