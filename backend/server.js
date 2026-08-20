@@ -804,9 +804,13 @@ app.put("/api/notifications/read-all/:userEmail", async (req, res) => {
 // ============ RECOMMENDATIONS ============
 app.get("/api/recommendations/:userName", async (req, res) => {
   try {
-    // Authorization Check: Student can only view their own recommendations; Admin/Owner can view anyone's.
-    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own recommendations." });
+    // Authorization Check: Use email for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner && req.user.name !== req.params.userName) {
+      const targetUser = await User.findOne({ name: req.params.userName });
+      if (!targetUser || targetUser.contact !== req.user.email) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only view your own recommendations." });
+      }
     }
     const userTx = await Transaction.find({ userName: req.params.userName });
     const borrowedBookIds = userTx.map(t => t.bookId);
@@ -853,15 +857,25 @@ app.get("/api/activity", verifyAdmin, async (req, res) => {
 app.get("/api/stats", async (req, res) => {
   try {
     const { role, name } = req.query;
-    // Authorization Check: Students/teachers can only query their own stats. Admins/owners can query any.
-    if (req.user.role !== "admin" && req.user.role !== "owner" && name && req.user.name !== name) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only query your own stats." });
+    // Authorization Check: Use email for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner && name && req.user.name !== name) {
+      // Double-check via email
+      const targetUser = await User.findOne({ name });
+      if (!targetUser || targetUser.contact !== req.user.email) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only query your own stats." });
+      }
     }
     const books = await Book.find();
     const totalBooks = books.reduce((s,b) => s + b.totalCopies, 0);
     const totalUsers = await User.countDocuments();
     let txQuery = {};
-    if ((role === "student" || role === "teacher") && name) txQuery.userName = name;
+    if ((role === "student" || role === "teacher") && name) {
+      // Prefer userId-based query for accuracy
+      const userRecord = await User.findOne({ name });
+      if (userRecord) txQuery.userId = userRecord._id;
+      else txQuery.userName = name;
+    }
     const transactions = await Transaction.find(txQuery);
     const issuedBooks = transactions.filter(t => t.status === "issued").length;
     let totalFines = 0;
@@ -1004,9 +1018,16 @@ try {
             await Notification.create({ userName: tx.userName, userEmail: "", type: "due_reminder_today", message: `Today is the last day to return "${bTitle}"! Due: ${due.toLocaleDateString("en-IN")}.` });
           }
         } else if (daysLeft < 0) {
-          // Overdue — daily alert
+          // Overdue — daily alert + persist fine in database
           const overdueDays = Math.abs(daysLeft);
           const fine = overdueDays * 5;
+          // Update the transaction's overdue fine in the database
+          if (tx.overdueFine !== fine || tx.fineStatus !== "unpaid") {
+            tx.overdueFine = fine;
+            tx.totalFine = fine + (tx.damageFine || 0);
+            if (tx.fineStatus !== "paid") tx.fineStatus = "unpaid";
+            await tx.save();
+          }
           await Notification.create({ userName: tx.userName, userEmail: "", type: "overdue_daily", message: `OVERDUE: "${bTitle}" is ${overdueDays} day(s) late. Current fine: ₹${fine}. Return immediately.` });
         }
       }
@@ -1033,8 +1054,11 @@ try {
         
         const book = await Book.findById(req.bookId);
         if (book) {
-          book.availableCopies++;
-          await book.save();
+          // Use atomic update to prevent availableCopies from exceeding totalCopies
+          await Book.updateOne(
+            { _id: req.bookId, availableCopies: { $lt: book.totalCopies } },
+            { $inc: { availableCopies: 1 } }
+          );
         }
         
         await Notification.create({

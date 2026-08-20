@@ -514,11 +514,31 @@ router.get("/gamification/user/:email", async (req, res) => {
     if (account.points >= 150) rank = "Scholar";
     if (account.points >= 300) rank = "Grandmaster";
 
+    // Automatic milestone badge awards
+    const badges = account.badges || [];
+    let badgesUpdated = false;
+    const milestones = [
+      { name: "Bookworm", condition: account.points >= 50, description: "Earned 50+ points" },
+      { name: "Scholar", condition: account.points >= 150, description: "Earned 150+ points" },
+      { name: "Grandmaster", condition: account.points >= 300, description: "Earned 300+ points" },
+      { name: "Streak Master", condition: (account.readingStreak || 0) >= 5, description: "5+ day reading streak" }
+    ];
+    for (const m of milestones) {
+      if (m.condition && !badges.includes(m.name)) {
+        badges.push(m.name);
+        badgesUpdated = true;
+      }
+    }
+    if (badgesUpdated) {
+      account.badges = badges;
+      await account.save();
+    }
+
     res.json({
       points: account.points || 0,
       readingStreak: account.readingStreak || 0,
       rank: rank,
-      badges: account.badges || []
+      badges: badges
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
