@@ -1086,10 +1086,13 @@ function renderMyFines() {
         grandTotal += totalFine;
 
         var isPaid = t.fineStatus === "paid";
+        var isPending = t.paymentStatus === "pending" && !t.verified;
         if (isPaid) { totalPaid += totalFine; }
 
         var statusBadge;
-        if (!isPaid) {
+        if (isPending) {
+          statusBadge = '<span class="verify-pending-badge">⏳ Pending Verification</span>';
+        } else if (!isPaid) {
           statusBadge = '<span class="badge badge-danger">Unpaid</span>';
         } else if (t.verified) {
           statusBadge = '<span class="verified-badge">✓ Verified</span>';
@@ -1100,7 +1103,9 @@ function renderMyFines() {
         var methodLabel = t.paymentMethod && t.paymentMethod !== "none" ? t.paymentMethod.toUpperCase() : "-";
 
         var actionHtml;
-        if (!isPaid) {
+        if (isPending) {
+          actionHtml = '<span class="badge" style="background:var(--warning);color:#000;padding:6px 12px;border-radius:8px;">⏳ Awaiting Verification</span>';
+        } else if (!isPaid) {
           actionHtml = '<button class="btn btn-primary btn-sm" onclick="payFineOnline(\'' + (t._id || t.id) + '\', ' + totalFine + ')">💳 Pay Now</button>';
         } else {
           actionHtml = '<button class="receipt-dl-btn" onclick="downloadReceipt(\'' + (t._id || t.id) + '\')" title="Download Receipt">⬇ Receipt</button>';
@@ -2004,7 +2009,7 @@ function submitPayment() {
     }).then(function(d) {
       closePaymentModal();
       if (d.success) {
-        showToast("Payment Successful! Fine is cleared and pending verification.", "success");
+        showToast("Payment submitted! Pending admin verification.", "success");
         renderTransactions();
         renderMyFines();
         updateDashboardStats();

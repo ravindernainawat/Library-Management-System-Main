@@ -6,7 +6,13 @@ const Notification = require("../models/Notification");
 const OTP = require("../models/OTP");
 const { logActivity, sendEmail } = require("../utils");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Hash OTPs with SHA-256 before storing in database
+function hashOtp(otp) {
+  return crypto.createHash("sha256").update(otp.toString()).digest("hex");
+}
 if (!JWT_SECRET) { console.error("FATAL: JWT_SECRET is not set in environment variables. Server cannot start securely."); process.exit(1); }
 const { validateRegister, validateLogin } = require("../middleware/validate");
 const { verifyToken, verifyOwner } = require("../middleware/auth");
@@ -51,7 +57,7 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
     
     await OTP.findOneAndUpdate(
       { email: email.toLowerCase() },
-      { otp, createdAt: new Date() },
+      { otp: hashOtp(otp), createdAt: new Date() },
       { upsert: true, new: true }
     );
 
@@ -67,7 +73,8 @@ router.post("/send-register-otp", authLimiter, async (req, res) => {
 
     const isDev = process.env.NODE_ENV !== "production";
     const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
-    const shouldReturnDevOtp = isDev || isDummyEmail || process.env.ALLOW_DEMO_OTP === "true";
+    // SECURITY: Never return raw OTP in production
+    const shouldReturnDevOtp = isDev && (isDummyEmail || process.env.ALLOW_DEMO_OTP === "true");
     
     if (!emailSent && !shouldReturnDevOtp) {
       return res.status(500).json({ success: false, message: "Failed to send verification email. Please try again later or contact support." });
@@ -98,9 +105,9 @@ router.post("/register", validateRegister, async (req, res) => {
     const existing = await Account.findOne({ email: email.toLowerCase(), role });
     if (existing) return res.status(400).json({ message: `Email already registered as ${role}. Please login instead.` });
     
-    // Verify OTP
+    // Verify OTP (hash user input and compare with stored hash)
     const otpRecord = await OTP.findOne({ email: email.toLowerCase() });
-    if (!otpRecord || otpRecord.otp !== otp) {
+    if (!otpRecord || otpRecord.otp !== hashOtp(otp)) {
       return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
     }
     
@@ -167,7 +174,7 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
     
-    account.loginOtp = otp;
+    account.loginOtp = hashOtp(otp);
     account.loginOtpExpires = expires;
     await account.save();
 
@@ -183,7 +190,8 @@ router.post("/login", authLimiter, validateLogin, async (req, res) => {
 
     const isDev = process.env.NODE_ENV !== "production";
     const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(account.email);
-    const shouldReturnDevOtp = isDev || isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true";
+    // SECURITY: Never return raw OTP in production
+    const shouldReturnDevOtp = isDev && (isDummyEmail || !emailSent || process.env.ALLOW_DEMO_OTP === "true");
     res.json({
       success: true,
       requiresOtp: true,
@@ -204,7 +212,7 @@ router.post("/verify-login-otp", authLimiter, async (req, res) => {
     const account = await Account.findOne({ email: email.toLowerCase(), role });
     if (!account) return res.status(404).json({ success: false, message: "Account not found." });
     
-    if (!account.loginOtp || account.loginOtp !== otp) {
+    if (!account.loginOtp || account.loginOtp !== hashOtp(otp)) {
       return res.status(400).json({ success: false, message: "Invalid OTP." });
     }
     
@@ -240,7 +248,7 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    account.resetOtp = otp;
+    account.resetOtp = hashOtp(otp);
     account.resetOtpExpires = expires;
     await account.save();
 
@@ -256,7 +264,8 @@ router.post("/forgot-password-otp", authLimiter, async (req, res) => {
 
     const isDev = process.env.NODE_ENV !== "production";
     const isDummyEmail = /@(booksphere\.com|example\.com|test\.com)$/i.test(email);
-    const shouldReturnDevOtp = isDev || isDummyEmail || process.env.ALLOW_DEMO_OTP === "true";
+    // SECURITY: Never return raw OTP in production
+    const shouldReturnDevOtp = isDev && (isDummyEmail || process.env.ALLOW_DEMO_OTP === "true");
     
     if (!emailSent && !shouldReturnDevOtp) {
       return res.status(500).json({ success: false, message: "Failed to send verification email. Please try again later or contact support." });
@@ -282,7 +291,7 @@ router.post("/reset-password", authLimiter, async (req, res) => {
     const account = await Account.findOne({ email: email.toLowerCase(), role });
     if (!account) return res.status(404).json({ success: false, message: "Account not found." });
 
-    if (!account.resetOtp || account.resetOtp !== otp) {
+    if (!account.resetOtp || account.resetOtp !== hashOtp(otp)) {
       return res.status(400).json({ success: false, message: "Invalid OTP." });
     }
 

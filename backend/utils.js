@@ -83,13 +83,13 @@ async function sendViaResend(to, subject, html, text) {
     });
     
     if (error) {
-      console.error("❌ Resend API Error Details:", error);
+      if (process.env.NODE_ENV !== "test") console.error("❌ Resend API Error Details:", error);
       throw new Error(error.message || JSON.stringify(error));
     }
     console.log(`[Email/Resend] ✓ Sent to ${to} (id: ${data.id})`);
     return true;
   } catch (err) {
-    console.error("❌ Resend Exception Details:", err);
+    if (process.env.NODE_ENV !== "test") console.error("❌ Resend Exception Details:", err);
     throw err;
   }
 }

@@ -13,5 +13,9 @@ requestSchema.index({ status: 1 });
 requestSchema.index({ bookId: 1 });
 requestSchema.index({ userName: 1 });
 requestSchema.index({ updatedAt: -1 });
+// Compound indexes for common query patterns
+requestSchema.index({ userEmail: 1, createdAt: -1 });
+requestSchema.index({ bookId: 1, userName: 1, status: 1 });
+requestSchema.index({ status: 1, updatedAt: 1 });
 
 module.exports = mongoose.model("Request", requestSchema);

@@ -56,9 +56,14 @@ router.get("/", verifyAdmin, async (req, res) => {
 // GET history for a user — paginated
 router.get("/history/:userName", async (req, res) => {
   try {
-    // Authorization Check
-    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== req.params.userName) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own history." });
+    // Authorization Check — use email for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner && req.user.name !== req.params.userName) {
+      // Double-check via email: find the User record and compare
+      const targetUser = await User.findOne({ name: req.params.userName });
+      if (!targetUser || targetUser.contact !== req.user.email) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only view your own history." });
+      }
     }
     let page  = Math.max(1, parseInt(req.query.page)  || 1);
     let limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
@@ -327,9 +332,16 @@ router.put("/:id/damage-fine", verifyAdmin, async (req, res) => {
 // GET UNPAID FINES
 router.get("/fines/unpaid", async (req, res) => {
   try {
-    const filter = { fineStatus: "unpaid" };
+    // Include both truly unpaid AND pending-verification fines for students
+    const filter = { $or: [{ fineStatus: "unpaid" }, { fineStatus: "unpaid", paymentStatus: "pending" }] };
     if (req.user.role !== "admin" && req.user.role !== "owner") {
-      filter.userName = req.user.name;
+      // Use email-based lookup for reliable identity matching
+      const userRecord = await User.findOne({ contact: req.user.email });
+      if (userRecord) {
+        filter.userId = userRecord._id;
+      } else {
+        filter.userName = req.user.name;
+      }
     }
     const txs = await Transaction.find(filter).sort({ createdAt: -1 });
     const enriched = [];
@@ -347,7 +359,13 @@ router.get("/fines/history", async (req, res) => {
   try {
     const filter = {};
     if (req.user.role !== "admin" && req.user.role !== "owner") {
-      filter.userName = req.user.name;
+      // Use email-based lookup for reliable identity matching
+      const userRecord = await User.findOne({ contact: req.user.email });
+      if (userRecord) {
+        filter.userId = userRecord._id;
+      } else {
+        filter.userName = req.user.name;
+      }
     }
 
     // Status filter
@@ -437,13 +455,22 @@ router.post("/pay-fine/:id", async (req, res) => {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
     
-    // Authorization Check: Student can only pay their own fine; Admin/Owner can pay anyone's fine.
-    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only pay your own fines." });
+    // Authorization Check: Use email/userId for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner) {
+      const userRecord = await User.findOne({ contact: req.user.email });
+      if (!userRecord || !tx.userId || userRecord._id.toString() !== tx.userId.toString()) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only pay your own fines." });
+      }
     }
 
     if (tx.fineStatus === "paid") {
       return res.status(400).json({ success: false, message: "Fine already paid." });
+    }
+
+    // Block duplicate payment submissions (already pending verification)
+    if (tx.paymentStatus === "pending") {
+      return res.status(400).json({ success: false, message: "Payment already submitted and pending verification." });
     }
 
     const fineAmount = tx.totalFine || calcFine(tx);
@@ -451,8 +478,13 @@ router.post("/pay-fine/:id", async (req, res) => {
       return res.status(400).json({ success: false, message: "No outstanding fine for this transaction." });
     }
 
+    // Verify submitted amount matches the actual fine
+    if (amount && parseInt(amount) !== fineAmount) {
+      return res.status(400).json({ success: false, message: `Payment amount mismatch. Expected ₹${fineAmount}.` });
+    }
+
     // Student cannot pay via Cash
-    if (req.user.role !== "admin" && req.user.role !== "owner" && paymentMethod === "cash") {
+    if (!isAdminOrOwner && paymentMethod === "cash") {
       return res.status(400).json({ success: false, message: "Students cannot pay fines using Cash. Please choose UPI, Card, or Net Banking." });
     }
 
@@ -460,12 +492,13 @@ router.post("/pay-fine/:id", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid payment method." });
     }
 
-    tx.fineStatus = "paid";
-    tx.paymentStatus = "completed";
+    // CRITICAL: fineStatus stays "unpaid" until admin verifies; paymentStatus goes to "pending"
+    tx.fineStatus = "unpaid";
+    tx.paymentStatus = "pending";
     tx.paymentMethod = paymentMethod;
     tx.paymentDate = new Date();
     tx.transactionId = "TXN-" + Date.now() + Math.random().toString(36).substr(2, 9).toUpperCase();
-    tx.verified = false; // Pending verification
+    tx.verified = false;
     tx.receiptNumber = "RCPT-" + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
     await tx.save();
 
@@ -474,7 +507,7 @@ router.post("/pay-fine/:id", async (req, res) => {
       userName: tx.userName,
       userEmail: "",
       type: "general",
-      message: `Fine payment of ₹${fineAmount} submitted via ${paymentMethod.toUpperCase()}. Transaction ID: ${tx.transactionId}. Pending verification.`
+      message: `Fine payment of ₹${fineAmount} submitted via ${paymentMethod.toUpperCase()}. Transaction ID: ${tx.transactionId}. Pending admin verification.`
     });
 
     // Notify Admin/Owner
@@ -485,8 +518,8 @@ router.post("/pay-fine/:id", async (req, res) => {
       message: `Fine payment of ₹${fineAmount} submitted by ${tx.userName} via ${paymentMethod.toUpperCase()}. Pending verification.`
     });
 
-    logActivity("Online Payment", tx.userName, `Fine ₹${amount || fineAmount} paid online via Stripe mock (${paymentMethod})`);
-    res.json({ success: true, message: "Payment successful! Pending admin verification.", data: tx });
+    logActivity("Online Payment", tx.userName, `Fine ₹${fineAmount} submitted online via ${paymentMethod} — pending verification`);
+    res.json({ success: true, message: "Payment submitted! Pending admin verification.", data: tx });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -498,14 +531,23 @@ router.put("/verify-fine/:id", verifyAdmin, async (req, res) => {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
 
-    if (tx.fineStatus !== "paid" || tx.paymentStatus !== "completed") {
-      return res.status(400).json({ success: false, message: "Payment must be completed before verification." });
+    // Check the payment is in the correct state for verification
+    if (tx.paymentStatus !== "pending") {
+      return res.status(400).json({ success: false, message: "No pending payment to verify for this transaction." });
     }
 
     if (tx.verified) {
       return res.status(400).json({ success: false, message: "Payment already verified." });
     }
 
+    // Prevent self-verification: admin cannot verify a fine belonging to their own account
+    if (tx.userId && tx.userId.toString() === req.user.id) {
+      return res.status(403).json({ success: false, message: "You cannot verify your own fine payment." });
+    }
+
+    // CRITICAL: NOW transition fineStatus to "paid" and paymentStatus to "completed"
+    tx.fineStatus = "paid";
+    tx.paymentStatus = "completed";
     tx.verified = true;
     tx.verifiedBy = req.user.id;
     tx.verifiedAt = new Date();
@@ -532,13 +574,18 @@ router.get("/receipt/:id", async (req, res) => {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
 
-    if (tx.fineStatus !== "paid") {
-      return res.status(400).json({ success: false, message: "Receipt can only be generated for paid fines." });
+    // Receipt requires verified payment
+    if (tx.fineStatus !== "paid" || !tx.verified) {
+      return res.status(400).json({ success: false, message: "Receipt can only be generated for verified and paid fines." });
     }
 
-    // Auth Check: Student can only access their own receipt
-    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only view your own receipts." });
+    // Auth Check: Use email/userId for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner) {
+      const userRecord = await User.findOne({ contact: req.user.email });
+      if (!userRecord || !tx.userId || userRecord._id.toString() !== tx.userId.toString()) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only view your own receipts." });
+      }
     }
 
     const book = await Book.findById(tx.bookId);
@@ -620,9 +667,13 @@ router.put("/:id/renew", async (req, res) => {
     const tx = await Transaction.findById(req.params.id);
     if (!tx) return res.status(404).json({ success: false, message: "Transaction not found." });
     
-    // Authorization Check: Student can only renew their own issue; Admin/Owner can renew anyone's.
-    if (req.user.role !== "admin" && req.user.role !== "owner" && req.user.name !== tx.userName) {
-      return res.status(403).json({ success: false, message: "Forbidden. You can only renew your own active issues." });
+    // Authorization Check: Use email/userId for reliable identity matching
+    const isAdminOrOwner = req.user.role === "admin" || req.user.role === "owner";
+    if (!isAdminOrOwner) {
+      const userRecord = await User.findOne({ contact: req.user.email });
+      if (!userRecord || !tx.userId || userRecord._id.toString() !== tx.userId.toString()) {
+        return res.status(403).json({ success: false, message: "Forbidden. You can only renew your own active issues." });
+      }
     }
     if (tx.status !== "issued") return res.status(400).json({ success: false, message: "Only active issues can be renewed." });
     
